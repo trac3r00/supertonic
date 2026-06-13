@@ -1,0 +1,36 @@
+# Repository automation and CI surfaces.
+/.github/ @trac3r00
+/test_all.sh @trac3r00
+
+# Package manifests and lockfiles.
+/py/pyproject.toml @trac3r00
+/py/requirements*.txt @trac3r00
+/py/uv.lock @trac3r00
+/nodejs/package*.json @trac3r00
+/web/package*.json @trac3r00
+/go/go.mod @trac3r00
+/go/go.sum @trac3r00
+/rust/Cargo.toml @trac3r00
+/java/pom.xml @trac3r00
+/swift/Package.swift @trac3r00
+/swift/Package.resolved @trac3r00
+/flutter/pubspec.yaml @trac3r00
+/flutter/pubspec.lock @trac3r00
+/flutter/macos/Podfile @trac3r00
+/flutter/macos/Podfile.lock @trac3r00
+/csharp/*.csproj @trac3r00
+
+# Platform, security, and runtime configuration.
+/ios/ExampleiOSApp/project.yml @trac3r00
+/**/CMakeLists.txt @trac3r00
+/**/vite.config.js @trac3r00
+/**/analysis_options.yaml @trac3r00
+/**/Info.plist @trac3r00
+/**/*.entitlements @trac3r00
+/**/*.xcconfig @trac3r00
+
+# Infrastructure documentation and executable examples.
+/README.md @trac3r00
+/*/README.md @trac3r00
+/*/example_* @trac3r00
+/*/Example* @trac3r00

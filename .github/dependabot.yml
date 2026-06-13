@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/py"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "trac3r00"
+
+  - package-ecosystem: "npm"
+    directory: "/nodejs"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "trac3r00"
+
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "trac3r00"
