@@ -1,4 +1,6 @@
 assets/
+!/tools/assets/
+!/tools/assets/**
 
 *.onnx
 onnx
