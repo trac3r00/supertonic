@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contractVersion": "1.0.0",
+  "unicodeVersion": "15.1.0",
+  "model": {
+    "name": "Supertone/supertonic-3",
+    "revision": "724fb5abbf5502583fb520898d45929e62f02c0b",
+    "defaultDtype": "float32",
+    "unicodeIndexerKnownTokenIds": {
+      "32": 2,
+      "45": 14,
+      "46": 15,
+      "47": 16,
+      "60": 29,
+      "62": 31,
+      "66": 34,
+      "72": 40,
+      "97": 60,
+      "98": 61,
+      "101": 64,
+      "104": 67,
+      "105": 68,
+      "109": 72,
+      "110": 73,
+      "111": 74,
+      "116": 79
+    }
+  },
+  "api": {
+    "operations": [
+      "create_engine",
+      "load_engine",
+      "synthesize",
+      "synthesize_batch",
+      "synthesize_chunks",
+      "capabilities",
+      "close"
+    ],
+    "rawBatchIsSingleInference": true,
+    "legacyEntryPointsDelegate": true
+  },
+  "inputs": {
+    "encoding": "UTF-8",
+    "languages": [
+      "en",
+      "ko",
+      "ja",
+      "ar",
+      "bg",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "es",
+      "et",
+      "fi",
+      "fr",
+      "hi",
+      "hr",
+      "hu",
+      "id",
+      "it",
+      "lt",
+      "lv",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "tr",
+      "uk",
+      "vi",
+      "na"
+    ],
+    "expressionTags": [
+      "laugh",
+      "breath",
+      "sigh"
+    ],
+    "defaults": {
+      "steps": 8,
+      "speed": 1.05,
+      "silenceSeconds": 0.3
+    },
+    "presets": {
+      "fast": 5,
+      "balanced": 8,
+      "quality": 12
+    },
+    "explicitStepsPrecedence": true,
+    "profilesMayOnlyChangeResources": true
+  },
+  "limits": {
+    "rawUnicodeScalarsPerItem": 16384,
+    "sdkRawBatchItems": 32,
+    "httpCompatibilityBatchItems": 64,
+    "steps": {
+      "minimum": 1,
+      "maximum": 100
+    },
+    "speed": {
+      "minimum": 0.7,
+      "maximum": 2.0,
+      "finite": true
+    },
+    "silenceSeconds": {
+      "minimum": 0,
+      "maximum": 5,
+      "finite": true
+    },
+    "predictedAudioSecondsPerChunk": 60,
+    "materializedAudioSecondsPerRequest": 3600,
+    "operatorLimitsDownwardOnly": true,
+    "checkedAdmissionForIncreases": true
+  },
+  "text": {
+    "validationOrder": [
+      "language",
+      "raw_scalar_limit",
+      "normalization",
+      "supported_scalars",
+      "nonempty",
+      "chunking"
+    ],
+    "normalization": "NFKD",
+    "normalizationSource": "contracts/v1/normalization.json",
+    "graphemeSource": "contracts/v1/grapheme.json",
+    "wrappersExcludedFromChunkBudget": true,
+    "recognizedTagsIndivisible": true,
+    "chunkScalarBudgets": {
+      "ko": 120,
+      "ja": 120,
+      "default": 300
+    },
+    "segmentationOrder": [
+      "sentence",
+      "whitespace",
+      "extended_grapheme"
+    ],
+    "astralScalarsRetained": true,
+    "emptyAfterPreprocessingInvalid": true
+  },
+  "audio": {
+    "format": "mono_float32_pcm",
+    "durationSource": "validSampleCount/sampleRate",
+    "neverPadShortModelOutput": true,
+    "neverReadBeyondActualSamples": true,
+    "silenceSamples": "round(sampleRate*silenceSeconds)",
+    "silenceInsertedOnceBetweenChunks": true,
+    "chunkOwnership": "owned",
+    "maxRetainedStreamingChunks": 2,
+    "wavPcm16ClampSeparate": true
+  },
+  "lifecycle": {
+    "runningRequestsPerEngine": 1,
+    "serviceQueueLimitFormula": "2*worker_count",
+    "closeIdempotent": true,
+    "callsAfterClose": "ENGINE_CLOSED",
+    "closeCancelsQueued": true,
+    "closeRequestsCooperativeCancellation": true,
+    "closeWaitsForNativeOperation": true,
+    "cancellationPollStages": [
+      "before_load",
+      "before_chunk",
+      "between_denoising",
+      "before_vocoder"
+    ],
+    "nativeCallInterruptibilityGuaranteed": false,
+    "isolatedWorkerGraceTermination": true
+  },
+  "errors": {
+    "codes": [
+      "INVALID_ARGUMENT",
+      "UNSUPPORTED_LANGUAGE",
+      "UNSUPPORTED_CHARACTER",
+      "STYLE_MISMATCH",
+      "MODEL_NOT_FOUND",
+      "MODEL_CORRUPT",
+      "MODEL_INCOMPATIBLE",
+      "PROVIDER_UNAVAILABLE",
+      "RESOURCE_EXHAUSTED",
+      "CANCELLED",
+      "DEADLINE_EXCEEDED",
+      "ENGINE_CLOSED",
+      "INFERENCE_FAILED",
+      "WORKER_EXITED",
+      "TRANSPORT_ERROR"
+    ],
+    "fields": [
+      "code",
+      "message",
+      "stage",
+      "request_id",
+      "retryable"
+    ],
+    "optionalFields": [
+      "cause"
+    ],
+    "publicAssertionsForbidden": true
+  },
+  "providers": {
+    "nativeDefault": {
+      "provider": "cpu",
+      "dtype": "float32"
+    },
+    "webDefault": {
+      "provider": "wasm",
+      "dtype": "float32"
+    },
+    "autoMayNegotiate": true,
+    "explicitUnavailableRequiresOptInFallback": true,
+    "fallbackRequiresCompatibleDtype": true,
+    "fallbackReportsCause": true,
+    "fallbackForbiddenFor": [
+      "MODEL_CORRUPT",
+      "INVALID_ARGUMENT",
+      "UNSUPPORTED_LANGUAGE",
+      "UNSUPPORTED_CHARACTER",
+      "STYLE_MISMATCH"
+    ],
+    "capabilityFields": [
+      "configured_provider",
+      "actual_provider",
+      "graph_placement",
+      "device",
+      "dtype",
+      "thread_budgets",
+      "cancellation_granularity",
+      "support_status"
+    ]
+  },
+  "resourceProfiles": {
+    "edge": {
+      "batch": 1,
+      "workers": 1,
+      "intraOpFormula": "min(2,affinity_cpus)",
+      "interOp": 1,
+      "spinning": false,
+      "initialization": "sequential"
+    },
+    "desktop": {
+      "workers": 1,
+      "intraOpFormula": "min(4,affinity_cpus)",
+      "interOp": 1,
+      "spinning": false
+    },
+    "server": {
+      "workers": "explicit",
+      "cpuThreadsPerWorkerFormula": "max(1,floor(affinity_cpus/workers))",
+      "automaticAllCoreMultiplication": false
+    },
+    "memoryBudgetIsTotalProcessGuarantee": false
+  },
+  "reproducibility": {
+    "seedScope": "same_runtime_backend",
+    "crossPortNoise": "injected_reference_float32",
+    "validationBypassForOrdinaryCallers": false
+  }
+}

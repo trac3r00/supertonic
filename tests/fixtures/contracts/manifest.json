@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "accepted": "accepted.jsonl",
+  "rejected": "rejected.jsonl",
+  "requiredIds": [
+    "ko-119",
+    "ko-120",
+    "ko-121-split",
+    "en-299",
+    "en-300",
+    "en-301-split",
+    "long-unbroken-token-split",
+    "combining-sequence",
+    "astral-u20000-unsupported",
+    "mixed-na",
+    "unsupported-language-zh",
+    "expression-laugh",
+    "expression-breath",
+    "expression-sigh",
+    "expression-token-over-explicit-budget",
+    "sdk-batch-32",
+    "sdk-batch-33",
+    "http-batch-32",
+    "http-batch-33",
+    "http-batch-64",
+    "http-batch-65",
+    "audio-short-model-output",
+    "lifecycle-close",
+    "provider-fallback",
+    "provider-no-optin",
+    "provider-corrupt-no-fallback",
+    "empty",
+    "emoji-only",
+    "steps-zero",
+    "steps-101",
+    "speed-nonfinite",
+    "style-rank",
+    "style-dimension",
+    "style-data-length",
+    "style-nonfinite",
+    "duration-zero",
+    "duration-negative",
+    "duration-nonfinite",
+    "untrusted-fixture-text",
+    "sentence-first-priority"
+  ],
+  "adversarialClasses": {
+    "malformed_input": [
+      "unsupported-language-zh",
+      "speed-nonfinite",
+      "style-rank"
+    ],
+    "prompt_injection": [
+      "untrusted-fixture-text"
+    ],
+    "stale_state": [
+      "lifecycle-close"
+    ],
+    "dirty_worktree": "external evidence check",
+    "flaky_tests": "repeat test evidence",
+    "misleading_success_output": "CLI exit code plus parsed ok field",
+    "hung_commands": "bounded direct Node invocations",
+    "cancellation_interruption": "No long generator launched by task1a; lifecycle fixture covers cancellation semantics."
+  }
+}

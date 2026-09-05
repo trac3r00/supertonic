@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "--fixtures",
+    "tests/fixtures/contracts",
+    "--mode",
+    "bogus"
+  ],
+  "expected": {
+    "exitNonzero": true,
+    "code": "INVALID_ARGUMENT",
+    "stage": "cli",
+    "retryable": false
+  }
+}

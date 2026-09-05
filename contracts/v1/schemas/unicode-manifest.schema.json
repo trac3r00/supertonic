@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonic.local/contracts/v1/unicode-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "unicode_version", "uax29_revision", "generator", "generated_files", "sources", "license_notice"],
+  "properties": {
+    "format": {"const": "supertonic.unicode.manifest.v1"},
+    "unicode_version": {"const": "15.1.0"},
+    "uax29_revision": {"const": 43},
+    "generator": {
+      "type": "object",
+      "required": ["dependency", "entrypoint"],
+      "properties": {
+        "dependency": {"const": "unicodedata2==15.1.0"},
+        "entrypoint": {"const": "tools/contracts/unicode/generate.py"}
+      }
+    },
+    "generated_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalization.json", "grapheme.json"],
+      "properties": {
+        "normalization.json": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "grapheme.json": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["file", "url", "sha256"],
+        "properties": {
+          "file": {"type": "string", "minLength": 1},
+          "url": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "license_notice": {"type": "string", "minLength": 1}
+  }
+}

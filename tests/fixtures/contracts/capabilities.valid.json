@@ -1,0 +1,10 @@
+{
+  "configured_provider": "auto",
+  "actual_provider": "cpu",
+  "graph_placement": null,
+  "device": "host",
+  "dtype": "float32",
+  "thread_budgets": {"workers": 1, "intra_op": 4, "inter_op": 1},
+  "cancellation_granularity": ["before_load", "before_chunk", "between_denoising", "before_vocoder"],
+  "support_status": "implemented"
+}

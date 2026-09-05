@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonic.local/contracts/v1/grapheme.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "unicode_version", "uax29_revision", "segmentation", "range_format", "properties", "rules"],
+  "properties": {
+    "format": {"const": "supertonic.unicode.grapheme.v1"},
+    "unicode_version": {"const": "15.1.0"},
+    "uax29_revision": {"const": 43},
+    "segmentation": {"const": "UAX29_extended_grapheme_cluster"},
+    "range_format": {"const": "[start_scalar,end_scalar,value]"},
+    "properties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Grapheme_Cluster_Break", "Extended_Pictographic", "Indic_Conjunct_Break"],
+      "properties": {
+        "Grapheme_Cluster_Break": {"type": "array", "minItems": 1, "items": {"type": "array", "minItems": 3}},
+        "Extended_Pictographic": {"type": "array", "minItems": 1, "items": {"type": "array", "minItems": 3}},
+        "Indic_Conjunct_Break": {"type": "array", "minItems": 1, "items": {"type": "array", "minItems": 3}}
+      }
+    },
+    "rules": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "rule"]}}
+  }
+}
