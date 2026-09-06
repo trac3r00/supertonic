@@ -16,6 +16,39 @@ export const EXPECTED_ERROR_CODES = [
   "WORKER_EXITED", "TRANSPORT_ERROR",
 ];
 
+export const RUNTIME_NAMES = [
+  "py",
+  "nodejs",
+  "web",
+  "cpp",
+  "rust",
+  "go",
+  "csharp",
+  "java",
+  "swift",
+  "ios",
+  "flutter",
+];
+export const DEPENDENCY_BASELINE_COMMIT = "a41a310d122cecbac33faf22bfd21834621ea91c";
+const EC1_GPU_CORRECTION = {
+  historicalPin: "onnxruntime-gpu==1.23.1",
+  intendedPin: "onnxruntime-gpu==1.23.2",
+  cpuBaselinePin: "onnxruntime==1.23.1",
+  wheelSha256: "d76d1ac7a479ecc3ac54482eea4ba3b10d68e888a0f8b5f420f0bdf82c5eec59",
+};
+const EC2_RUST_CORRECTION = {
+  ort: "2.0.0-rc.13",
+  ortSys: "2.0.0-rc.13",
+  ndarray: "0.17.2",
+  runtimeFamily: "1.28",
+  apiVersion: 27,
+};
+const FLUTTER_COMPATIBILITY = {
+  declaredSdk: "^3.5.0",
+  effectiveDartSdk: ">=3.9.0 <4.0.0",
+  effectiveFlutterSdk: ">=3.35.0",
+};
+
 const EXPRESSION_TAGS = ["laugh", "breath", "sigh"];
 const EXPRESSION_PATTERN = /<(laugh|breath|sigh)>/gy;
 const EMOJI_PATTERN =
@@ -28,6 +61,8 @@ export class ContractValidationError extends Error {
     this.path = path;
   }
 }
+
+export class DependencyPrerequisiteError extends ContractValidationError {}
 
 export async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
@@ -158,6 +193,331 @@ export function validateContract(contract, schema) {
     throw new ContractValidationError("bounded lifecycle contract mismatch");
   }
   return true;
+}
+
+function requireDependency(condition, message, path = "$dependencies") {
+  if (!condition) throw new ContractValidationError(message, path);
+}
+
+function requireUnique(values, label, path = "$dependencies") {
+  if (new Set(values).size !== values.length) {
+    throw new ContractValidationError(`duplicate ${label}`, path);
+  }
+}
+
+function environmentById(environments) {
+  const entries = environments.map((environment) => [environment.id, environment]);
+  requireUnique(entries.map(([id]) => id), "environment identifier", "$dependencies.environments");
+  return new Map(entries);
+}
+
+function validateNodeEnvironments(environments) {
+  const byId = environmentById(environments);
+  const node22 = byId.get("node22");
+  const node24 = byId.get("node24");
+  requireDependency(node22 !== undefined, "node22 environment is required");
+  requireDependency(node24 !== undefined, "node24 environment is required");
+  requireDependency(node22.runtime === "nodejs", "node22 must identify nodejs");
+  requireDependency(node24.runtime === "nodejs", "node24 must identify nodejs");
+  requireDependency(node22.identity !== node24.identity, "node22 and node24 identities must differ");
+  return byId;
+}
+
+function validateNativeAbiConstraints(constraints) {
+  const expected = new Map([
+    [
+      "go",
+      {
+        binding: "github.com/yalue/onnxruntime_go",
+        bindingVersion: "1.11.0",
+        ortApiVersion: 18,
+        requiredRuntimeVersion: "1.18.0",
+      },
+    ],
+    [
+      "rust",
+      {
+        binding: "ort",
+        bindingVersion: EC2_RUST_CORRECTION.ort,
+        ortApiVersion: EC2_RUST_CORRECTION.apiVersion,
+        requiredRuntimeVersion: EC2_RUST_CORRECTION.runtimeFamily,
+      },
+    ],
+  ]);
+  requireUnique(
+    constraints.map((constraint) => constraint.runtime),
+    "native ABI runtime",
+    "$dependencies.nativeAbiConstraints",
+  );
+  for (const [runtime, required] of expected) {
+    const actual = constraints.find((constraint) => constraint.runtime === runtime);
+    requireDependency(actual !== undefined, `${runtime} native ABI constraint is required`);
+    for (const [field, value] of Object.entries(required)) {
+      requireDependency(
+        actual[field] === value,
+        `${runtime} native ABI ${field} mismatch`,
+        "$dependencies.nativeAbiConstraints",
+      );
+    }
+  }
+  const rust = constraints.find((constraint) => constraint.runtime === "rust");
+  requireDependency(rust.typedDependency !== undefined, "rust ndarray typed dependency is required");
+  requireDependency(
+    rust.typedDependency.name === "ndarray" &&
+      rust.typedDependency.version === EC2_RUST_CORRECTION.ndarray,
+    "rust ndarray typed dependency mismatch",
+    "$dependencies.nativeAbiConstraints",
+  );
+}
+
+function validateOrtDistributions(distributions, environments) {
+  const variantsByEnvironment = new Map();
+  for (const distribution of distributions) {
+    requireDependency(
+      environments.has(distribution.environmentId),
+      `ORT distribution references unknown environment ${distribution.environmentId}`,
+      "$dependencies.ortDistributions",
+    );
+    const variants = variantsByEnvironment.get(distribution.environmentId) ?? new Set();
+    variants.add(distribution.variant);
+    variantsByEnvironment.set(distribution.environmentId, variants);
+  }
+  for (const [environmentId, variants] of variantsByEnvironment) {
+    requireDependency(
+      !(variants.has("cpu") && variants.has("gpu")),
+      `mixed CPU and GPU ORT distributions in environment ${environmentId}`,
+      "$dependencies.ortDistributions",
+    );
+  }
+}
+
+function validateFutureGpuCorrection(correction) {
+  if (correction === undefined) return;
+  requireDependency(
+    correction.historicalPin === EC1_GPU_CORRECTION.historicalPin &&
+      correction.historicalStatus === "unpublished_404",
+    "GPU correction historical 1.23.1 404 provenance mismatch",
+    "$dependencies.futureGpuCorrection",
+  );
+  requireDependency(
+    correction.intendedPin === EC1_GPU_CORRECTION.intendedPin,
+    "GPU correction intended pin mismatch",
+    "$dependencies.futureGpuCorrection",
+  );
+  requireDependency(
+    correction.cpuBaselinePin === EC1_GPU_CORRECTION.cpuBaselinePin &&
+      correction.separateEnvironment === true,
+    "GPU correction CPU baseline or environment separation mismatch",
+    "$dependencies.futureGpuCorrection",
+  );
+  requireDependency(
+    correction.wheel.sha256 === EC1_GPU_CORRECTION.wheelSha256 &&
+      correction.registryAvailability === "verified" &&
+      correction.physicalProviderQuality === "unverified",
+    "GPU correction registry or qualification state mismatch",
+    "$dependencies.futureGpuCorrection",
+  );
+}
+
+function validateRustCorrection(correction) {
+  requireDependency(correction !== undefined, "EC2 rust correction is required");
+  requireDependency(
+    correction.id === "EC2" &&
+      correction.selectedOrt === EC2_RUST_CORRECTION.ort &&
+      correction.selectedOrtSys === EC2_RUST_CORRECTION.ortSys &&
+      correction.selectedNdarray === EC2_RUST_CORRECTION.ndarray,
+    "EC2 resolved Rust dependency identity mismatch",
+    "$dependencies.rustCorrection",
+  );
+  requireDependency(
+    correction.runtimeFamily === EC2_RUST_CORRECTION.runtimeFamily &&
+      correction.apiVersion === EC2_RUST_CORRECTION.apiVersion &&
+      correction.nativeArtifactIsolation === "task_scoped" &&
+      correction.rc7Status === "blocked_source_incompatible" &&
+      correction.modelQualification === "unverified",
+    "EC2 native/model verification state mismatch",
+    "$dependencies.rustCorrection",
+  );
+}
+
+function validateFlutterCompatibility(compatibility) {
+  requireDependency(compatibility !== undefined, "Flutter compatibility facts are required");
+  requireDependency(
+    compatibility.declaredSdk === FLUTTER_COMPATIBILITY.declaredSdk &&
+      compatibility.effectiveDartSdk === FLUTTER_COMPATIBILITY.effectiveDartSdk &&
+      compatibility.effectiveFlutterSdk === FLUTTER_COMPATIBILITY.effectiveFlutterSdk &&
+      compatibility.dart35Qualification === "unverified" &&
+      compatibility.flutterQualification === "unverified",
+    "Flutter declaration, effective lock, or qualification facts mismatch",
+    "$dependencies.flutterCompatibility",
+  );
+}
+
+function validateProducerEvidence(evidence) {
+  requireUnique(
+    evidence.map((entry) => entry.task),
+    "producer evidence task",
+    "$dependencies.producerEvidence",
+  );
+  exactArray(
+    evidence.map((entry) => entry.task),
+    ["task6a", "task6b", "task6c"],
+    "producer evidence",
+  );
+}
+
+async function validateResolvedLocks(resolutions, environments, dependenciesPath) {
+  requireUnique(
+    resolutions.map((resolution) => resolution.runtime),
+    "runtime resolution",
+    "$dependencies.resolutions",
+  );
+  const checked = [];
+  for (const resolution of resolutions) {
+    requireDependency(
+      resolution.environmentIds.every((environmentId) => environments.has(environmentId)),
+      `resolution ${resolution.runtime} references an unknown environment`,
+      "$dependencies.resolutions",
+    );
+    requireUnique(
+      resolution.environmentIds,
+      `${resolution.runtime} environment reference`,
+      "$dependencies.resolutions",
+    );
+    requireUnique(
+      resolution.pins.map((pin) => pin.name),
+      `${resolution.runtime} pinned package`,
+      "$dependencies.resolutions",
+    );
+    const files = [
+      resolution.lockfile,
+      ...(resolution.additionalLockfiles ?? []),
+      ...(resolution.sourceFiles ?? []),
+    ];
+    requireUnique(
+      files.map((file) => file.path),
+      `${resolution.runtime} dependency file`,
+      "$dependencies.resolutions",
+    );
+    const lockTexts = [];
+    for (const file of files) {
+      const lockPath = resolve(dirname(dependenciesPath), file.path);
+      let lockBytes;
+      try {
+        lockBytes = await readFile(lockPath);
+      } catch (error) {
+        if (error && typeof error === "object" && error.code === "ENOENT") {
+          throw new DependencyPrerequisiteError(
+            `required lockfile is unavailable for ${resolution.runtime}`,
+            "$dependencies.resolutions",
+          );
+        }
+        throw error;
+      }
+      verifyHash(lockBytes, file.sha256, file.path);
+      lockTexts.push(lockBytes.toString("utf8"));
+    }
+    const lockText = lockTexts.join("\n");
+    for (const pin of resolution.pins) {
+      if (pin.version !== null && pin.version !== undefined) {
+        requireDependency(
+          pin.lockToken.includes(pin.version),
+          `pinned version is absent from lock token for ${pin.name}`,
+          "$dependencies.resolutions",
+        );
+      } else {
+        requireDependency(
+          pin.requirement !== undefined,
+          `unresolved pin is missing an explicit requirement for ${pin.name}`,
+          "$dependencies.resolutions",
+        );
+      }
+      requireDependency(
+        lockText.includes(pin.lockToken),
+        `pinned lock token is absent for ${pin.name}`,
+        "$dependencies.resolutions",
+      );
+    }
+    checked.push({
+      runtime: resolution.runtime,
+      lockfiles: [
+        resolution.lockfile.path,
+        ...(resolution.additionalLockfiles ?? []).map((file) => file.path),
+      ],
+      sourceFiles: (resolution.sourceFiles ?? []).map((file) => file.path),
+      resolutionStatus: resolution.resolutionStatus,
+      verification: resolution.verification,
+    });
+  }
+  return checked;
+}
+
+export async function validateDependencies(dependencies, schema, dependenciesPath, runtime = "all") {
+  requireDependency(runtime === "all" || RUNTIME_NAMES.includes(runtime), "unknown dependency runtime");
+  validateSchema(dependencies, schema, "$dependencies");
+  validateFutureGpuCorrection(dependencies.futureGpuCorrection);
+  const pendingFacts = Object.values(dependencies.producerFacts).some(
+    (status) => status !== "complete",
+  );
+  if (dependencies.status === "pending_producer_facts") {
+    requireDependency(pendingFacts, "pending dependency contract has no missing producer facts");
+    requireDependency(
+      dependencies.environments.length === 0 &&
+        dependencies.resolutions.length === 0 &&
+        dependencies.nativeAbiConstraints.length === 0 &&
+        dependencies.ortDistributions.length === 0,
+      "pending dependency contract must not contain incomplete resolution metadata",
+    );
+    throw new DependencyPrerequisiteError("dependency producer facts are not complete");
+  }
+  if (pendingFacts) {
+    throw new DependencyPrerequisiteError("dependency producer facts are not complete");
+  }
+  validateProducerEvidence(dependencies.producerEvidence);
+  validateRustCorrection(dependencies.rustCorrection);
+  validateFlutterCompatibility(dependencies.flutterCompatibility);
+  requireDependency(
+    dependencies.baseline.sourceWorktreeDirty === false,
+    "dependency baseline was captured from a dirty worktree",
+    "$dependencies.baseline",
+  );
+  requireDependency(
+    dependencies.baseline.sourceCommit === DEPENDENCY_BASELINE_COMMIT,
+    "dependency baseline commit mismatch",
+    "$dependencies.baseline",
+  );
+  const resolutions = dependencies.resolutions;
+  exactArray(
+    resolutions.map((resolution) => resolution.runtime),
+    RUNTIME_NAMES,
+    "dependency runtime",
+  );
+  const environments = validateNodeEnvironments(dependencies.environments);
+  const selected = runtime === "all"
+    ? resolutions
+    : resolutions.filter((resolution) => resolution.runtime === runtime);
+  const checkedLocks = await validateResolvedLocks(selected, environments, dependenciesPath);
+  validateNativeAbiConstraints(dependencies.nativeAbiConstraints);
+  validateOrtDistributions(dependencies.ortDistributions, environments);
+  return {
+    runtimes: selected.map((resolution) => resolution.runtime),
+    checkedLocks,
+    nodeEnvironments: ["node22", "node24"],
+    nativeAbiConstraints: {
+      go: dependencies.nativeAbiConstraints.find((constraint) => constraint.runtime === "go"),
+      rust: dependencies.nativeAbiConstraints.find((constraint) => constraint.runtime === "rust"),
+    },
+    corrections: {
+      gpu: {
+        registryAvailability: dependencies.futureGpuCorrection.registryAvailability,
+        physicalProviderQuality: dependencies.futureGpuCorrection.physicalProviderQuality,
+      },
+      rust: {
+        modelQualification: dependencies.rustCorrection.modelQualification,
+      },
+    },
+    flutterCompatibility: dependencies.flutterCompatibility,
+  };
 }
 
 function replacementNormalize(text) {

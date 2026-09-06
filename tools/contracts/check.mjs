@@ -5,9 +5,12 @@ import { fileURLToPath } from "node:url";
 
 import {
   ContractValidationError,
+  DependencyPrerequisiteError,
+  RUNTIME_NAMES,
   readJson,
   readJsonl,
   validateContract,
+  validateDependencies,
   validateFixtures,
   validateSchema,
   validateUnicodeArtifacts,
@@ -15,18 +18,21 @@ import {
 } from "./lib.mjs";
 
 const USAGE = `Usage: node tools/contracts/check.mjs --fixtures <directory> --mode <valid|mutation>
+       node tools/contracts/check.mjs --dependencies <path>
 
 Options:
   --fixtures <directory>  Checked-in contract fixture directory
   --mode <mode>           valid or mutation
+  --dependencies <path>   Exact cross-runtime dependency contract
+  --runtime <name|all>    Dependency file selection (default: all)
   --help                  Show this help
 `;
 
-function typedCliError(message) {
+function typedCliError(message, code = "INVALID_ARGUMENT") {
   return {
     ok: false,
     error: {
-      code: "INVALID_ARGUMENT",
+      code,
       message,
       stage: "cli",
       request_id: "contracts-check",
@@ -37,6 +43,17 @@ function typedCliError(message) {
 
 export function parseArgs(argv) {
   if (argv.length === 1 && argv[0] === "--help") return { help: true };
+  if (argv.length === 2 && argv[0] === "--dependencies" && argv[1]) {
+    return { dependencies: argv[1] };
+  }
+  if (argv.length === 4 && argv[0] === "--dependencies" && argv[1] &&
+      argv[2] === "--runtime") {
+    const runtime = argv[3] === "node" ? "nodejs" : argv[3];
+    if (runtime !== "all" && !RUNTIME_NAMES.includes(runtime)) {
+      throw new ContractValidationError(`unknown dependency runtime ${runtime}`);
+    }
+    return { dependencies: argv[1], runtime };
+  }
   const options = {};
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
@@ -51,6 +68,24 @@ export function parseArgs(argv) {
     throw new ContractValidationError("--mode must be valid or mutation");
   }
   return options;
+}
+
+async function runDependencyChecker(path, runtime = "all") {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+  const dependenciesPath = resolve(path);
+  const schemaPath = resolve(
+    root,
+    "contracts/v1/schemas/dependencies.schema.json",
+  );
+  const [dependencies, schema] = await Promise.all([
+    readJson(dependenciesPath),
+    readJson(schemaPath),
+  ]);
+  return {
+    ok: true,
+    status: dependencies.status,
+    ...(await validateDependencies(dependencies, schema, dependenciesPath, runtime)),
+  };
 }
 
 async function loadInputs(fixturesDirectory) {
@@ -269,11 +304,15 @@ async function main() {
       process.stdout.write(USAGE);
       return;
     }
-    const result = await runChecker(options);
+    const result = options.dependencies
+      ? await runDependencyChecker(options.dependencies, options.runtime)
+      : await runChecker(options);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (!result.ok) process.exitCode = 1;
   } catch (error) {
-    const payload = error instanceof ContractValidationError
+    const payload = error instanceof DependencyPrerequisiteError
+      ? typedCliError(error.message, "PROVIDER_UNAVAILABLE")
+      : error instanceof ContractValidationError
       ? typedCliError(error.message)
       : {
           ok: false,
@@ -284,9 +323,9 @@ async function main() {
             request_id: "contracts-check",
             retryable: false,
           },
-        };
+    };
     process.stderr.write(`${JSON.stringify(payload)}\n`);
-    process.exitCode = 2;
+    process.exitCode = error instanceof DependencyPrerequisiteError ? 77 : 2;
   }
 }
 

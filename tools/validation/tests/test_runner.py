@@ -85,6 +85,147 @@ def test_unknown_runtime_is_an_invalid_invocation(tmp_path: Path) -> None:
     assert result.returncode == 2
 
 
+def test_dependency_resolution_validates_metadata_without_claiming_native_host_proof(
+    tmp_path: Path,
+) -> None:
+    """A lock-resolved contract passes while remaining non-claimable for native proof."""
+    evidence_dir = tmp_path / "dependency-resolution"
+    result = run_cli(
+        "packages",
+        "--runtime",
+        "all",
+        "--scenario",
+        "dependency-resolution",
+        "--evidence",
+        str(evidence_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    receipt = load_single_receipt(evidence_dir)
+    assert receipt.outcome == "verified"
+    assert receipt.evidence_class == "preflight"
+    assert receipt.claimable_for == ()
+    assert receipt.inference_proof is False
+
+
+def test_mixed_ort_distributions_are_rejected_by_the_real_packages_cli(
+    tmp_path: Path,
+) -> None:
+    """The registered negative scenario must fail only the mutated scratch contract."""
+    evidence_dir = tmp_path / "mixed-ort-distributions"
+    result = run_cli(
+        "packages",
+        "--runtime",
+        "all",
+        "--scenario",
+        "mixed-ort-distributions",
+        "--evidence",
+        str(evidence_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    receipt = load_single_receipt(evidence_dir)
+    assert receipt.outcome == "verified"
+    assert [child.exit_code for child in receipt.children] == [0, 2]
+    assert receipt.claimable_for == ()
+    assert receipt.inference_proof is False
+
+
+def test_future_package_scenario_is_rejected_with_a_receipt(tmp_path: Path) -> None:
+    evidence_dir = tmp_path / "future-package"
+    result = run_cli(
+        "packages",
+        "--runtime",
+        "all",
+        "--scenario",
+        "future-package-success",
+        "--evidence",
+        str(evidence_dir),
+    )
+
+    assert result.returncode == 2, result.stderr
+    receipt = load_single_receipt(evidence_dir)
+    assert receipt.outcome == "invalid_invocation"
+
+
+@pytest.mark.parametrize(
+    ("runtime", "selected"),
+    [
+        ("py", ("py",)),
+        ("node", ("nodejs",)),
+        ("nodejs", ("nodejs",)),
+        ("web", ("web",)),
+        ("go", ("go",)),
+        (
+            "all",
+            (
+                "py",
+                "nodejs",
+                "web",
+                "cpp",
+                "rust",
+                "go",
+                "csharp",
+                "java",
+                "swift",
+                "ios",
+                "flutter",
+            ),
+        ),
+    ],
+)
+def test_package_runtime_selection(
+    tmp_path: Path,
+    runtime: str,
+    selected: tuple[str, ...],
+) -> None:
+    evidence = tmp_path / runtime
+    result = run_cli(
+        "packages",
+        "--runtime",
+        runtime,
+        "--scenario",
+        "dependency-resolution",
+        "--evidence",
+        str(evidence),
+    )
+    assert result.returncode == 0, result.stderr
+    receipt = load_single_receipt(evidence)
+    assert receipt.command == (
+        "packages",
+        "--runtime",
+        runtime,
+        "--scenario",
+        "dependency-resolution",
+    )
+    assert receipt.selected_runtimes == selected
+    assert receipt.outcome == "verified"
+    assert receipt.claimable_for == ()
+    assert receipt.inference_proof is False
+    assert [child.exit_code for child in receipt.children] == [0]
+    assert receipt.cleanup.scratch_removed
+    assert not Path(receipt.scratch_dir).exists()
+    if runtime != "all":
+        assert '"runtimes": [\n    "' + selected[0] + '"\n  ]' in receipt.children[0].stdout
+
+
+def test_unknown_package_runtime_stays_invalid(tmp_path: Path) -> None:
+    evidence = tmp_path / "unknown"
+    result = run_cli(
+        "packages",
+        "--runtime",
+        "unknown",
+        "--scenario",
+        "dependency-resolution",
+        "--evidence",
+        str(evidence),
+    )
+    assert result.returncode == 2
+    receipt = load_single_receipt(evidence)
+    assert receipt.outcome == "invalid_invocation"
+    assert receipt.children == ()
+
+
 def test_missing_assets_are_unverified_not_success(tmp_path: Path) -> None:
     """An absent immutable asset prerequisite exits with the designated status."""
     result = run_cli(
@@ -222,9 +363,7 @@ def test_evidence_file_refused_without_overwriting(tmp_path: Path, command: str)
     original = b"preserve this existing file\n"
     _ = sentinel.write_bytes(original)
     options = (
-        ("--scenario", "missing-assets")
-        if command == "preflight"
-        else ("--runtime", "nonexistent")
+        ("--scenario", "missing-assets") if command == "preflight" else ("--runtime", "nonexistent")
     )
     result = run_cli(command, *options, "--evidence", str(sentinel))
     assert sentinel.read_bytes() == original

@@ -7,7 +7,7 @@ let package = Package(
         .macOS(.v13)
     ],
     dependencies: [
-        .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager.git", from: "1.16.0"),
+        .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager.git", exact: "1.20.0"),
     ],
     targets: [
         .executableTarget(
@@ -19,4 +19,3 @@ let package = Package(
         )
     ]
 )
-

@@ -19,7 +19,54 @@
         <maven.compiler.target>11</maven.compiler.target>
         <onnxruntime.version>1.23.1</onnxruntime.version>
         <jackson.version>2.15.2</jackson.version>
+        <jtransforms.version>3.1</jtransforms.version>
+        <jlargearrays.version>1.5</jlargearrays.version>
+        <commons-math3.version>3.5</commons-math3.version>
     </properties>
+
+    <!--
+      Maven has no native lockfile. dependencyManagement pins every production
+      artifact in java/dependency-lock.json's resolved graph before mediation.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.microsoft.onnxruntime</groupId>
+                <artifactId>onnxruntime</artifactId>
+                <version>${onnxruntime.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.wendykierp</groupId>
+                <artifactId>JTransforms</artifactId>
+                <version>${jtransforms.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>pl.edu.icm</groupId>
+                <artifactId>JLargeArrays</artifactId>
+                <version>${jlargearrays.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-math3</artifactId>
+                <version>${commons-math3.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- ONNX Runtime -->
@@ -40,7 +87,7 @@
         <dependency>
             <groupId>com.github.wendykierp</groupId>
             <artifactId>JTransforms</artifactId>
-            <version>3.1</version>
+            <version>${jtransforms.version}</version>
         </dependency>
     </dependencies>
 
@@ -104,7 +151,26 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Fail a resolver result that contains competing production versions. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>verify-locked-production-graph</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <dependencyConvergence />
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>
-

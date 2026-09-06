@@ -93,3 +93,49 @@ class EvidenceReceipt(FrozenModel):
     outcome: Outcome
     scratch_dir: str
     started_at: str
+    selected_runtimes: tuple[str, ...] = ()
+
+
+class DependencyLockfile(FrozenModel):
+    """Retain the relative lockfile path needed by an isolated mutation run."""
+
+    path: str
+    sha256: str
+
+
+class DependencyResolution(FrozenModel):
+    """Retain one checked dependency lockfile location."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="ignore", frozen=True)
+
+    lockfile: DependencyLockfile
+    additional_lockfiles: tuple[DependencyLockfile, ...] = Field(
+        default=(),
+        alias="additionalLockfiles",
+    )
+    source_files: tuple[DependencyLockfile, ...] = Field(
+        default=(),
+        alias="sourceFiles",
+    )
+
+
+class OrtDistribution(FrozenModel):
+    """Retain the exact ORT variant fields needed for a negative check."""
+
+    environment_id: str = Field(alias="environmentId")
+    package: str
+    runtime: str
+    variant: Literal["cpu", "gpu"]
+
+
+class DependencyMutationContract(FrozenModel):
+    """Parse only the dependency fields required for a scratch-only mutation."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra="ignore",
+        frozen=True,
+        populate_by_name=True,
+    )
+
+    ort_distributions: tuple[OrtDistribution, ...] = Field(alias="ortDistributions")
+    resolutions: tuple[DependencyResolution, ...]
