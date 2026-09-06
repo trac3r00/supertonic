@@ -34,6 +34,8 @@ filterwarnings = ["error"]
 
 [tool.basedpyright]
 typeCheckingMode = "all"
+venvPath = "."
+venv = ".venv"
 pythonVersion = "3.11"
 pythonPlatform = "All"
 include = ["src", "tests"]
