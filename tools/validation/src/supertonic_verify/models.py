@@ -6,7 +6,9 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
-EvidenceClass = Literal["harness_fixture", "preflight", "rejection"]
+EvidenceClass = Literal[
+    "baseline_capture", "baseline_preparation", "harness_fixture", "preflight", "rejection"
+]
 Outcome = Literal[
     "verified",
     "assertion_failure",

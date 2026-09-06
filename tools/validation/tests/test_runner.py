@@ -254,12 +254,77 @@ def test_future_scenario_is_rejected_instead_of_mocked(tmp_path: Path) -> None:
     assert result.returncode == 2
 
 
-def test_documented_future_command_emits_a_precise_error() -> None:
-    """A listed future command reports its task boundary rather than looking successful."""
-    result = run_cli("baseline")
+def test_documented_future_command_emits_a_precise_error(tmp_path: Path) -> None:
+    """An intentionally unregistered baseline scenario remains an honest rejection."""
+    result = run_cli(
+        "baseline",
+        "--ref",
+        "104e2ec154823b0e296076f98016de9b3b41cfe5",
+        "--scenario",
+        "future-unregistered",
+        "--evidence",
+        str(tmp_path / "future-unregistered"),
+    )
 
     assert result.returncode == 2
-    assert "not implemented by task3" in result.stderr
+    receipt = load_single_receipt(tmp_path / "future-unregistered")
+    assert receipt.outcome == "invalid_invocation"
+
+
+def test_baseline_prepare_uses_the_real_public_cli(tmp_path: Path) -> None:
+    """The baseline command prepares an immutable original-model reference."""
+    evidence_dir = tmp_path / "baseline-prepare"
+    result = run_cli(
+        "baseline",
+        "--ref",
+        "104e2ec154823b0e296076f98016de9b3b41cfe5",
+        "--scenario",
+        "prepare",
+        "--evidence",
+        str(evidence_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    receipt = load_single_receipt(evidence_dir)
+    assert receipt.evidence_class == "baseline_preparation"
+    assert receipt.inference_proof is True
+
+
+def test_baseline_rejects_an_incorrect_original_ref(tmp_path: Path) -> None:
+    """A different commit cannot be mislabeled as the immutable original baseline."""
+    evidence_dir = tmp_path / "wrong-ref"
+    result = run_cli(
+        "baseline",
+        "--ref",
+        "f" * 40,
+        "--scenario",
+        "prepare",
+        "--evidence",
+        str(evidence_dir),
+    )
+
+    assert result.returncode == 2
+    receipt = load_single_receipt(evidence_dir)
+    assert receipt.outcome == "invalid_invocation"
+
+
+def test_baseline_rejects_a_substituted_manifest(tmp_path: Path) -> None:
+    """The public negative scenario verifies a real cache-manifest mutation is rejected."""
+    evidence_dir = tmp_path / "mismatched-assets"
+    result = run_cli(
+        "baseline",
+        "--ref",
+        "104e2ec154823b0e296076f98016de9b3b41cfe5",
+        "--scenario",
+        "reject-mismatched-assets",
+        "--evidence",
+        str(evidence_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    receipt = load_single_receipt(evidence_dir)
+    assert receipt.evidence_class == "rejection"
+    assert receipt.outcome == "verified"
 
 
 def test_fixture_records_real_child_statuses_and_redacts_output(tmp_path: Path) -> None:
@@ -372,3 +437,49 @@ def test_evidence_file_refused_without_overwriting(tmp_path: Path, command: str)
     assert "Traceback" not in result.stderr
     assert sentinel.name not in result.stderr
     assert len(result.stderr) < 512
+
+
+def test_capture_is_registered_but_rejects_wrong_source_before_inference(tmp_path: Path) -> None:
+    result = run_cli(
+        "baseline", "--ref", "f" * 40, "--scenario", "capture", "--evidence", str(tmp_path)
+    )
+    assert result.returncode == 2
+    receipt = load_single_receipt(tmp_path)
+    assert any("immutable original" in message for message in receipt.assertion_errors)
+
+
+def test_conformance_default_remains_an_honest_rejection(tmp_path: Path) -> None:
+    """Adding scenarios must not make a bare runtime conformance call pass."""
+    evidence_dir = tmp_path / "default-conformance"
+    result = run_cli("conformance", "--runtime", "py", "--evidence", str(evidence_dir))
+
+    assert result.returncode == 2, result.stderr
+    receipt = load_single_receipt(evidence_dir)
+    assert receipt.outcome == "invalid_invocation"
+    assert receipt.assertion_errors == (
+        "runtime 'py' has no implemented task3 conformance scenario",
+    )
+
+
+def test_python_assets_conformance_uses_real_cached_assets(tmp_path: Path) -> None:
+    """The registered Python scenario validates the immutable local cache without inference."""
+    evidence_dir = tmp_path / "python-assets"
+    result = run_cli(
+        "conformance",
+        "--runtime",
+        "py",
+        "--scenario",
+        "assets-offline-and-corrupt",
+        "--evidence",
+        str(evidence_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    receipt = load_single_receipt(evidence_dir)
+    assert receipt.outcome == "verified"
+    assert receipt.evidence_class == "preflight"
+    assert receipt.inference_proof is False
+    assert receipt.selected_runtimes == ("py",)
+    assert len(receipt.children) == 1
+    assert receipt.children[0].outcome == "success"
+    assert receipt.children[0].stdout.strip() == "ASSETS_Q_VERIFIED"

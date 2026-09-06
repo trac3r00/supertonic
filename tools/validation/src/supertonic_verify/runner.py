@@ -192,9 +192,7 @@ class EvidenceRun:
         self.scratch_dir: Path = Path(tempfile.mkdtemp(prefix="supertonic-verify-"))
         self.socket: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind(("127.0.0.1", 0))
-        self.port: int = PortProbe.model_validate(
-            {"port": self.socket.getsockname()[1]}
-        ).port
+        self.port: int = PortProbe.model_validate({"port": self.socket.getsockname()[1]}).port
         self.resources_path: Path = self.run_dir / "resources.json"
         _ = self.resources_path.write_text(
             json.dumps({"ephemeral_port": self.port, "scratch_dir": str(self.scratch_dir)}) + "\n",

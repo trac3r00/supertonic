@@ -36,6 +36,9 @@ from supertonic_verify.runner import (
     utc_now,
     write_receipt,
 )
+from supertonic_verify.scenarios.baseline import run as run_baseline_scenario
+from supertonic_verify.scenarios.python_assets import SCENARIO as PYTHON_ASSETS_SCENARIO
+from supertonic_verify.scenarios.python_assets import run as run_python_assets_scenario
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -88,6 +91,7 @@ class ScenarioReport:
     errors: tuple[str, ...]
     evidence_class: EvidenceClass
     outcome: Outcome
+    inference_proof: bool = False
     selected_runtimes: tuple[str, ...] = ()
 
 
@@ -112,7 +116,7 @@ def _write(run: EvidenceRun, draft: ReceiptDraft) -> CommandResult:
         ephemeral_port=run.port,
         host=collect_host(),
         identity=collect_identity(repository_root()),
-        inference_proof=False,
+        inference_proof=draft.report.inference_proof,
         outcome=draft.report.outcome,
         scratch_dir=str(run.scratch_dir),
         started_at=utc_now(),
@@ -382,6 +386,66 @@ def _open_evidence(evidence: str) -> EvidenceRun:
         raise typer.Exit(2) from None
 
 
+def _baseline_report(ref: str, scenario: str, run: EvidenceRun) -> ScenarioReport:
+    """Adapt one task4A baseline scenario into the common CLI receipt model."""
+    result = run_baseline_scenario(
+        repository_root(),
+        ref,
+        scenario,
+        run.run_dir,
+        run.scratch_dir,
+    )
+    return ScenarioReport(
+        result.children,
+        result.errors,
+        result.evidence_class,
+        result.outcome,
+        result.inference_proof,
+    )
+
+
+def _conformance_report(
+    runtime: str,
+    scenario: str | None,
+    run: EvidenceRun,
+) -> ScenarioReport:
+    """Dispatch only implemented runtime scenarios and reject every other request."""
+    if runtime not in RUNTIMES:
+        return ScenarioReport(
+            (),
+            (f"runtime {runtime!r} is unknown",),
+            "rejection",
+            "invalid_invocation",
+        )
+    if scenario is None:
+        return ScenarioReport(
+            (),
+            (f"runtime {runtime!r} has no implemented task3 conformance scenario",),
+            "rejection",
+            "invalid_invocation",
+        )
+    if runtime == "py" and scenario == PYTHON_ASSETS_SCENARIO:
+        result = run_python_assets_scenario(
+            str(repository_root()),
+            str(run.run_dir),
+            str(run.scratch_dir),
+        )
+        return ScenarioReport(
+            result.children,
+            result.errors,
+            result.evidence_class,
+            result.outcome,
+            result.inference_proof,
+            ("py",),
+        )
+    return ScenarioReport(
+        (),
+        (f"conformance scenario {scenario!r} is not implemented for runtime {runtime!r}",),
+        "rejection",
+        "invalid_invocation",
+    )
+
+
 @app.command()
 def preflight(
     scenario: Annotated[str, typer.Option(help="Explicit checked-in scenario name.")],
@@ -419,18 +483,21 @@ def conformance(
         str,
         typer.Option(help="Parent directory for private run receipts."),
     ],
+    scenario: Annotated[
+        str | None,
+        typer.Option(help="Optional explicit checked-in conformance scenario name."),
+    ] = None,
 ) -> None:
-    """Reject unknown and task3-unimplemented real runtime drivers."""
-    message = (
-        f"runtime {runtime!r} is unknown"
-        if runtime not in RUNTIMES
-        else f"runtime {runtime!r} has no implemented task3 conformance scenario"
-    )
+    """Run an implemented conformance scenario or retain an honest rejection receipt."""
+    run = _open_evidence(evidence)
+    command = ("conformance", "--runtime", runtime)
+    if scenario is not None:
+        command = (*command, "--scenario", scenario)
     result = _write(
-        _open_evidence(evidence),
+        run,
         ReceiptDraft(
-            ("conformance", "--runtime", runtime),
-            ScenarioReport((), (message,), "rejection", "invalid_invocation"),
+            command,
+            _conformance_report(runtime, scenario, run),
         ),
     )
     typer.echo(result.receipt_path)
@@ -459,6 +526,30 @@ def packages(
     raise typer.Exit(result.exit_code)
 
 
+@app.command()
+def baseline(
+    ref: Annotated[str, typer.Option(help="Exact immutable original source revision.")],
+    evidence: Annotated[
+        str,
+        typer.Option(help="Parent directory for immutable baseline evidence."),
+    ],
+    scenario: Annotated[
+        str, typer.Option(help="prepare or capture (full timed protocol).")
+    ] = "capture",
+) -> None:
+    """Prepare reference artifacts or explicitly capture the full original-model baseline."""
+    run = _open_evidence(evidence)
+    result = _write(
+        run,
+        ReceiptDraft(
+            ("baseline", "--ref", ref, "--scenario", scenario),
+            _baseline_report(ref, scenario, run),
+        ),
+    )
+    typer.echo(result.receipt_path)
+    raise typer.Exit(result.exit_code)
+
+
 def _unimplemented(command: str) -> Callable[[], None]:
     """Create a precise rejection handler for one documented future command."""
 
@@ -471,7 +562,6 @@ def _unimplemented(command: str) -> Callable[[], None]:
 
 
 for command_name in (
-    "baseline",
     "bench",
     "quality",
     "http",
