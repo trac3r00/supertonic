@@ -1,0 +1,59 @@
+[project]
+name = "supertonic-validation"
+version = "0.1.0"
+description = "Truthful Supertonic runtime validation harness"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "anyio==4.10.0",
+    "pydantic==2.11.9",
+    "typer==0.15.4",
+    "typing-extensions==4.15.0",
+]
+
+[project.scripts]
+supertonic-verify = "supertonic_verify.cli:app"
+
+[dependency-groups]
+dev = [
+    "basedpyright==1.29.4",
+    "pytest==8.3.5",
+    "ruff==0.11.13",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/supertonic_verify"]
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.basedpyright]
+typeCheckingMode = "all"
+pythonVersion = "3.11"
+pythonPlatform = "All"
+include = ["src", "tests"]
+exclude = ["**/__pycache__", "**/.venv"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["COM812", "CPY001", "D203", "D213", "ISC001"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D", "PLR2004", "S101"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
