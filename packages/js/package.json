@@ -1,0 +1,54 @@
+{
+  "name": "supertonic-runtime-js",
+  "version": "0.1.0",
+  "description": "Shared typed Supertonic inference pipeline contracts and pure core",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "import": "./dist/web.js"
+    },
+    "./worker": {
+      "types": "./dist/worker.d.ts",
+      "import": "./dist/worker.js"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "import": "./dist/http.js"
+    }
+  },
+  "bin": {
+    "supertonic-runtime-js": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "check": "bun run build && bun run scripts/verify-data.ts && bunx biome check . && bunx tsc -p tsconfig.json --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "zod": "4.1.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.3",
+    "@types/bun": "1.2.21",
+    "typescript": "6.0.2"
+  }
+}
