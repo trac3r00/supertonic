@@ -142,7 +142,7 @@
       ],
       "lockfile": {
         "path": "../../py/uv.lock",
-        "sha256": "e66d8a78be6cfcfd23eff4bf45ab2d333afcc220cdbbc0317ee6e689c6f399f3"
+        "sha256": "763e44912a235fe3797b2e546c92ee20a777eb54e126b5ae23f9df4e7c05b58b"
       },
       "resolutionStatus": "lock_resolved",
       "verification": {
