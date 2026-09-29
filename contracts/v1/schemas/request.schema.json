@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonic.local/contracts/v1/request.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["text", "language", "voice_style"],
+  "properties": {
+    "text": {"type": "string"},
+    "language": {"type": "string"},
+    "voice_style": {"type": "object", "additionalProperties": false, "required": ["style_ttl", "style_dp"], "properties": {
+      "style_ttl": {"type": "object", "additionalProperties": false, "required": ["dims", "data"], "properties": {"dims": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "integer", "minimum": 1}}, "data": {"type": "array", "items": {"type": "number"}}}},
+      "style_dp": {"type": "object", "additionalProperties": false, "required": ["dims", "data"], "properties": {"dims": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "integer", "minimum": 1}}, "data": {"type": "array", "items": {"type": "number"}}}}
+    }},
+    "steps": {"type": "integer", "minimum": 1, "maximum": 100},
+    "preset": {"enum": ["fast", "balanced", "quality"]},
+    "speed": {"type": "number", "minimum": 0.7, "maximum": 2.0},
+    "silence_seconds": {"type": "number", "minimum": 0, "maximum": 5},
+    "provider": {"type": "string"},
+    "allow_fallback": {"type": "boolean"},
+    "seed": {"type": "integer"}
+  }
+}

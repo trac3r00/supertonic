@@ -1,0 +1,500 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "baseline": {
+    "sourceCommit": "a41a310d122cecbac33faf22bfd21834621ea91c",
+    "sourceWorktreeDirty": false
+  },
+  "producerFacts": {
+    "task6a": "complete",
+    "task6b": "complete",
+    "task6c": "complete"
+  },
+  "producerEvidence": [
+    {
+      "task": "task6a",
+      "path": ".omo/evidence/task-6-verifier/6a-closure1.json",
+      "sha256": "6633d7d57bd0ce98fa143f949ddf66a687d5935e4fbd49d41d161bc1633bcafd"
+    },
+    {
+      "task": "task6b",
+      "path": ".omo/evidence/task-6-verifier/6b-closure1.json",
+      "sha256": "d8e2fc82905ca8edae3a27440de0539edb990ac3dd5eb323855cc74440f91b88"
+    },
+    {
+      "task": "task6c",
+      "path": ".omo/evidence/task-6c/fix2/done.json",
+      "sha256": "38907d86e925dd80fd3dd78821b64ec94b3be842b39b6d7315d7fe90f5a781f7"
+    }
+  ],
+  "futureGpuCorrection": {
+    "id": "EC1",
+    "historicalPin": "onnxruntime-gpu==1.23.1",
+    "historicalStatus": "unpublished_404",
+    "intendedPin": "onnxruntime-gpu==1.23.2",
+    "wheel": {
+      "pythonTag": "cp311",
+      "platform": "manylinux_2_27_x86_64.manylinux_2_28_x86_64",
+      "sha256": "d76d1ac7a479ecc3ac54482eea4ba3b10d68e888a0f8b5f420f0bdf82c5eec59",
+      "requiresPython": ">=3.10"
+    },
+    "cpuBaselinePin": "onnxruntime==1.23.1",
+    "separateEnvironment": true,
+    "registryAvailability": "verified",
+    "physicalProviderQuality": "unverified",
+    "provenance": [
+      ".omo/ulw-execute/plan-corrections.md",
+      ".omo/ulw-execute/task-6-gpu-pin.md"
+    ]
+  },
+  "rustCorrection": {
+    "id": "EC2",
+    "selectedOrt": "2.0.0-rc.13",
+    "selectedOrtSys": "2.0.0-rc.13",
+    "selectedNdarray": "0.17.2",
+    "runtimeFamily": "1.28",
+    "apiVersion": 27,
+    "nativeArtifactIsolation": "task_scoped",
+    "rc7Status": "blocked_source_incompatible",
+    "modelQualification": "unverified",
+    "provenance": ".omo/evidence/task-6b/factreport-for-6d.md"
+  },
+  "flutterCompatibility": {
+    "declaredSdk": "^3.5.0",
+    "effectiveDartSdk": ">=3.9.0 <4.0.0",
+    "effectiveFlutterSdk": ">=3.35.0",
+    "dart35Qualification": "unverified",
+    "flutterQualification": "unverified",
+    "provenance": ".omo/evidence/task-6c/correction1/flutter-facts.json"
+  },
+  "environments": [
+    {
+      "id": "py-cpu",
+      "runtime": "py",
+      "identity": "python-cpu-1.23.1"
+    },
+    {
+      "id": "py-gpu",
+      "runtime": "py",
+      "identity": "python-gpu-1.23.2"
+    },
+    {
+      "id": "node22",
+      "runtime": "nodejs",
+      "identity": "node-22-linux-x86-64"
+    },
+    {
+      "id": "node24",
+      "runtime": "nodejs",
+      "identity": "node-24-linux-x86-64"
+    },
+    {
+      "id": "web-default",
+      "runtime": "web",
+      "identity": "web-ort-1.23.2"
+    },
+    {
+      "id": "cpp-default",
+      "runtime": "cpp",
+      "identity": "cpp-operator-prefix"
+    },
+    {
+      "id": "rust-default",
+      "runtime": "rust",
+      "identity": "rust-ort-rc13"
+    },
+    {
+      "id": "go-default",
+      "runtime": "go",
+      "identity": "go-ort-1.18"
+    },
+    {
+      "id": "csharp-default",
+      "runtime": "csharp",
+      "identity": "dotnet-ort-1.20.1"
+    },
+    {
+      "id": "java-default",
+      "runtime": "java",
+      "identity": "java-ort-1.23.1"
+    },
+    {
+      "id": "swift-default",
+      "runtime": "swift",
+      "identity": "swift-ort-1.20.0"
+    },
+    {
+      "id": "ios-default",
+      "runtime": "ios",
+      "identity": "ios-declared-ort-1.16.0"
+    },
+    {
+      "id": "flutter-default",
+      "runtime": "flutter",
+      "identity": "flutter-ort-1.6.0"
+    }
+  ],
+  "resolutions": [
+    {
+      "runtime": "py",
+      "environmentIds": [
+        "py-cpu"
+      ],
+      "lockfile": {
+        "path": "../../py/uv.lock",
+        "sha256": "763e44912a235fe3797b2e546c92ee20a777eb54e126b5ae23f9df4e7c05b58b"
+      },
+      "resolutionStatus": "lock_resolved",
+      "verification": {
+        "registry": "verified",
+        "lock": "verified",
+        "nativeBinary": "unverified",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "onnxruntime",
+          "version": "1.23.1",
+          "lockToken": "name = \"onnxruntime\"\nversion = \"1.23.1\""
+        }
+      ]
+    },
+    {
+      "runtime": "nodejs",
+      "environmentIds": [
+        "node22",
+        "node24"
+      ],
+      "lockfile": {
+        "path": "../../nodejs/package-lock.json",
+        "sha256": "456abf522227f894166a7d81fb575c6bd3ab30b174b483961a5aa178683762e3"
+      },
+      "resolutionStatus": "lock_resolved",
+      "verification": {
+        "registry": "verified",
+        "lock": "verified",
+        "nativeBinary": "unverified",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "onnxruntime-node",
+          "version": "1.23.2",
+          "lockToken": "\"onnxruntime-node\": \"1.23.2\""
+        }
+      ]
+    },
+    {
+      "runtime": "web",
+      "environmentIds": [
+        "web-default"
+      ],
+      "lockfile": {
+        "path": "../../web/package-lock.json",
+        "sha256": "3d8d93fba5e20eb40ad1ba4913f5feda27212ca412c742f24c3b413e61643501"
+      },
+      "resolutionStatus": "lock_resolved",
+      "verification": {
+        "registry": "verified",
+        "lock": "verified",
+        "nativeBinary": "unverified",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "onnxruntime-web",
+          "version": "1.23.2",
+          "lockToken": "\"onnxruntime-web\": \"1.23.2\""
+        }
+      ]
+    },
+    {
+      "runtime": "cpp",
+      "environmentIds": [
+        "cpp-default"
+      ],
+      "lockfile": {
+        "path": "../../cpp/dependency-lock.json",
+        "sha256": "9c8472f6b9985aa6d45855c33d0b88afe5309b7dd9370790a3d72b4efa601a87"
+      },
+      "resolutionStatus": "operator_prerequisite",
+      "verification": {
+        "registry": "not_applicable",
+        "lock": "verified",
+        "nativeBinary": "prerequisite_missing",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "onnxruntime",
+          "version": null,
+          "lockToken": "\"version\": null",
+          "requirement": "single C++17-compatible operator-owned ONNX Runtime prefix"
+        }
+      ],
+      "sourceFiles": [
+        {
+          "path": "../../cpp/CMakeLists.txt",
+          "sha256": "b7131b9a84c6a9bf926085807269faf27803bfc678464479b0e853a474907315"
+        }
+      ]
+    },
+    {
+      "runtime": "rust",
+      "environmentIds": [
+        "rust-default"
+      ],
+      "lockfile": {
+        "path": "../../rust/Cargo.lock",
+        "sha256": "2900aa734774b009fc52bd6f1a059c607abb084242e820850650622ae03c30b0"
+      },
+      "resolutionStatus": "lock_resolved",
+      "verification": {
+        "registry": "verified",
+        "lock": "verified",
+        "nativeBinary": "build_metadata_verified",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "ort",
+          "version": "2.0.0-rc.13",
+          "lockToken": "name = \"ort\"\nversion = \"2.0.0-rc.13\""
+        },
+        {
+          "name": "ort-sys",
+          "version": "2.0.0-rc.13",
+          "lockToken": "name = \"ort-sys\"\nversion = \"2.0.0-rc.13\""
+        },
+        {
+          "name": "ndarray",
+          "version": "0.17.2",
+          "lockToken": "name = \"ndarray\"\nversion = \"0.17.2\""
+        }
+      ]
+    },
+    {
+      "runtime": "go",
+      "environmentIds": [
+        "go-default"
+      ],
+      "lockfile": {
+        "path": "../../go/go.sum",
+        "sha256": "6bf8810cbacde9e3905720b4cac95c51daf1dc601b70d7e8138c6730910911f4"
+      },
+      "resolutionStatus": "lock_resolved",
+      "verification": {
+        "registry": "verified",
+        "lock": "verified",
+        "nativeBinary": "resolver_verified",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "github.com/yalue/onnxruntime_go",
+          "version": "1.11.0",
+          "lockToken": "github.com/yalue/onnxruntime_go v1.11.0 h1:aKH4yPIbqfcB3SfnQWq/WxzLelkyolntHnffL3eMBHY="
+        }
+      ]
+    },
+    {
+      "runtime": "csharp",
+      "environmentIds": [
+        "csharp-default"
+      ],
+      "lockfile": {
+        "path": "../../csharp/packages.lock.json",
+        "sha256": "9578147d16cdb84410b2a6fe4f05d5f5abeda5ac12bd99a7a8fa0e8a24f31c3d"
+      },
+      "resolutionStatus": "lock_resolved",
+      "verification": {
+        "registry": "verified",
+        "lock": "verified",
+        "nativeBinary": "unverified",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "Microsoft.ML.OnnxRuntime",
+          "version": "1.20.1",
+          "lockToken": "\"Microsoft.ML.OnnxRuntime\": {\n        \"type\": \"Direct\",\n        \"requested\": \"[1.20.1, )\""
+        }
+      ]
+    },
+    {
+      "runtime": "java",
+      "environmentIds": [
+        "java-default"
+      ],
+      "lockfile": {
+        "path": "../../java/dependency-lock.json",
+        "sha256": "580d6fdb48b7330c4910bf17dc063d3f57cc86286428796063c5f4cf4194f758"
+      },
+      "resolutionStatus": "lock_resolved",
+      "verification": {
+        "registry": "verified",
+        "lock": "verified",
+        "nativeBinary": "unverified",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "com.microsoft.onnxruntime:onnxruntime",
+          "version": "1.23.1",
+          "lockToken": "\"coordinate\": \"com.microsoft.onnxruntime:onnxruntime:1.23.1\""
+        }
+      ]
+    },
+    {
+      "runtime": "swift",
+      "environmentIds": [
+        "swift-default"
+      ],
+      "lockfile": {
+        "path": "../../swift/Package.resolved",
+        "sha256": "734a7c1d4c0bf86653432709f0c793f2b0d1e2501db6510230a4df7a90326f1c"
+      },
+      "resolutionStatus": "lock_resolved",
+      "verification": {
+        "registry": "verified",
+        "lock": "verified",
+        "nativeBinary": "unverified",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "onnxruntime-swift-package-manager",
+          "version": "1.20.0",
+          "lockToken": "\"identity\" : \"onnxruntime-swift-package-manager\",\n      \"kind\" : \"remoteSourceControl\",\n      \"location\" : \"https://github.com/microsoft/onnxruntime-swift-package-manager.git\",\n      \"state\" : {\n        \"revision\" : \"12ce7374c86944e1f68f3a866d10105d8357f074\",\n        \"version\" : \"1.20.0\""
+        }
+      ]
+    },
+    {
+      "runtime": "ios",
+      "environmentIds": [
+        "ios-default"
+      ],
+      "lockfile": {
+        "path": "../../ios/ExampleiOSApp/project.yml",
+        "sha256": "00705f7d432d265d42566acbc9063a4ee21b1aba8a163aca9e28316a7c5ff6e0"
+      },
+      "resolutionStatus": "declaration_only",
+      "verification": {
+        "registry": "unverified",
+        "lock": "unverified",
+        "nativeBinary": "unverified",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "onnxruntime",
+          "version": "1.16.0",
+          "lockToken": "onnxruntime:\n    url: https://github.com/microsoft/onnxruntime-swift-package-manager.git\n    from: 1.16.0"
+        }
+      ]
+    },
+    {
+      "runtime": "flutter",
+      "environmentIds": [
+        "flutter-default"
+      ],
+      "lockfile": {
+        "path": "../../flutter/pubspec.lock",
+        "sha256": "1d11be74edfed077dccee88518236c8c2f9af02aa3558f4072479e5686a1ce26"
+      },
+      "resolutionStatus": "lock_resolved",
+      "verification": {
+        "registry": "unverified",
+        "lock": "verified",
+        "nativeBinary": "prerequisite_missing",
+        "model": "unverified",
+        "hardware": "unverified"
+      },
+      "pins": [
+        {
+          "name": "flutter_onnxruntime",
+          "version": "1.6.0",
+          "lockToken": "flutter_onnxruntime:\n    dependency: \"direct main\"\n    description:\n      name: flutter_onnxruntime\n      sha256: \"55842e69293ec52c07f3065049ff7641e94e8a6cca3f659a913d5401a3994424\"\n      url: \"https://pub.dev\"\n    source: hosted\n    version: \"1.6.0\""
+        },
+        {
+          "name": "onnxruntime-c",
+          "version": "1.21.0",
+          "lockToken": "onnxruntime-c (1.21.0)"
+        },
+        {
+          "name": "onnxruntime-objc",
+          "version": "1.21.0",
+          "lockToken": "onnxruntime-objc (1.21.0)"
+        }
+      ],
+      "additionalLockfiles": [
+        {
+          "path": "../../flutter/macos/Podfile.lock",
+          "sha256": "91f21679fe18bb213d79d1ea5c26b801c8d803ae4c8543355c56b3d5ea08d68b"
+        }
+      ]
+    }
+  ],
+  "nativeAbiConstraints": [
+    {
+      "runtime": "go",
+      "binding": "github.com/yalue/onnxruntime_go",
+      "bindingVersion": "1.11.0",
+      "ortApiVersion": 18,
+      "requiredRuntimeVersion": "1.18.0"
+    },
+    {
+      "runtime": "rust",
+      "binding": "ort",
+      "bindingVersion": "2.0.0-rc.13",
+      "ortApiVersion": 27,
+      "requiredRuntimeVersion": "1.28",
+      "typedDependency": {
+        "name": "ndarray",
+        "version": "0.17.2"
+      }
+    }
+  ],
+  "ortDistributions": [
+    {
+      "environmentId": "py-cpu",
+      "runtime": "py",
+      "package": "onnxruntime",
+      "variant": "cpu"
+    },
+    {
+      "environmentId": "py-gpu",
+      "runtime": "py",
+      "package": "onnxruntime-gpu",
+      "variant": "gpu"
+    },
+    {
+      "environmentId": "node22",
+      "runtime": "nodejs",
+      "package": "onnxruntime-node",
+      "variant": "cpu"
+    },
+    {
+      "environmentId": "node24",
+      "runtime": "nodejs",
+      "package": "onnxruntime-node",
+      "variant": "cpu"
+    },
+    {
+      "environmentId": "web-default",
+      "runtime": "web",
+      "package": "onnxruntime-web",
+      "variant": "cpu"
+    }
+  ]
+}

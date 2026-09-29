@@ -1,0 +1,15 @@
+{
+  "text": "Hello.",
+  "language": "en",
+  "voice_style": {
+    "style_ttl": {"dims": [1, 2, 2], "data": [0.0, 0.1, 0.2, 0.3]},
+    "style_dp": {"dims": [1, 2, 2], "data": [0.0, -0.1, -0.2, -0.3]}
+  },
+  "preset": "quality",
+  "steps": 7,
+  "speed": 1.05,
+  "silence_seconds": 0.3,
+  "provider": "cpu",
+  "allow_fallback": false,
+  "seed": 17
+}

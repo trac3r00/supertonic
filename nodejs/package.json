@@ -18,9 +18,9 @@
   "dependencies": {
     "fft.js": "^4.0.3",
     "js-yaml": "^4.1.0",
-    "onnxruntime-node": "^1.19.2"
+    "onnxruntime-node": "1.23.2"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=22.0.0"
   }
 }

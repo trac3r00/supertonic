@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonic.local/contracts/v1/normalization.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "unicode_version", "normalization_form", "decomposition_mode", "scalar_range", "decomposition_mappings", "canonical_combining_classes", "hangul"],
+  "properties": {
+    "format": {"const": "supertonic.unicode.normalization.v1"},
+    "unicode_version": {"const": "15.1.0"},
+    "normalization_form": {"const": "NFKD"},
+    "decomposition_mode": {"const": "direct_recursive"},
+    "scalar_range": {"type": "array", "minItems": 2, "items": {"type": "integer"}},
+    "decomposition_mappings": {"type": "array", "minItems": 1, "items": {"type": "array", "minItems": 2}},
+    "canonical_combining_classes": {"type": "array", "minItems": 1, "items": {"type": "array", "minItems": 2}},
+    "hangul": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "s_base", "s_count", "l_base", "l_count", "v_base", "v_count", "t_base", "t_count", "n_count"],
+      "properties": {
+        "algorithm": {"const": "UAX15_NFKD"},
+        "s_base": {"type": "integer"}, "s_count": {"type": "integer"},
+        "l_base": {"type": "integer"}, "l_count": {"type": "integer"},
+        "v_base": {"type": "integer"}, "v_count": {"type": "integer"},
+        "t_base": {"type": "integer"}, "t_count": {"type": "integer"},
+        "n_count": {"type": "integer"}
+      }
+    }
+  }
+}

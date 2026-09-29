@@ -1,6 +1,7 @@
 # Rust build artifacts
 /target/
 Cargo.lock
+!/Cargo.lock
 
 # Output directory
 /results/
@@ -18,4 +19,3 @@ Thumbs.db
 
 # Debug
 *.pdb
-

@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "runtime": "java",
+  "resolver": {
+    "kind": "maven",
+    "nativeLockfileSupport": false,
+    "enforcement": {
+      "pom": "pom.xml",
+      "dependencyManagement": "exact production coordinates",
+      "mavenEnforcerPlugin": "org.apache.maven.plugins:maven-enforcer-plugin:3.5.0",
+      "rule": "dependencyConvergence"
+    },
+    "verification": {
+      "lockCheck": "mvn -o validate",
+      "inventory": "mvn -o -DincludeScope=runtime dependency:tree"
+    }
+  },
+  "target": {
+    "javaLanguageLevel": 11,
+    "nativeBinaryQualification": "required per target OS/architecture; this manifest is not a hardware qualification"
+  },
+  "artifacts": [
+    {
+      "coordinate": "com.microsoft.onnxruntime:onnxruntime:1.23.1",
+      "scope": "runtime",
+      "sha1": "c59e4140b82ae631fd6fc775cec3b17a3737dedf",
+      "repository": "https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime/1.23.1/onnxruntime-1.23.1.jar"
+    },
+    {
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind:2.15.2",
+      "scope": "runtime",
+      "sha1": "9353b021f10c307c00328f52090de2bdb4b6ff9c",
+      "repository": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.15.2/jackson-databind-2.15.2.jar"
+    },
+    {
+      "coordinate": "com.fasterxml.jackson.core:jackson-core:2.15.2",
+      "scope": "runtime",
+      "sha1": "a6fe1836469a69b3ff66037c324d75fc66ef137c",
+      "repository": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.2/jackson-core-2.15.2.jar"
+    },
+    {
+      "coordinate": "com.fasterxml.jackson.core:jackson-annotations:2.15.2",
+      "scope": "runtime",
+      "sha1": "4724a65ac8e8d156a24898d50fd5dbd3642870b8",
+      "repository": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.15.2/jackson-annotations-2.15.2.jar"
+    },
+    {
+      "coordinate": "com.github.wendykierp:JTransforms:3.1",
+      "scope": "runtime",
+      "sha1": "f1f6d3c9c9bc04f848e38bdb77dea01e8764a01f",
+      "repository": "https://repo.maven.apache.org/maven2/com/github/wendykierp/JTransforms/3.1/JTransforms-3.1.jar"
+    },
+    {
+      "coordinate": "pl.edu.icm:JLargeArrays:1.5",
+      "scope": "runtime",
+      "sha1": "0fe1350c7b5537c144fb0af39206e212ad1bbbe2",
+      "repository": "https://repo.maven.apache.org/maven2/pl/edu/icm/JLargeArrays/1.5/JLargeArrays-1.5.jar"
+    },
+    {
+      "coordinate": "org.apache.commons:commons-math3:3.5",
+      "scope": "runtime",
+      "sha1": "13af68e9a11576953f5c4b09436f8207be9d3a27",
+      "repository": "https://repo.maven.apache.org/maven2/org/apache/commons/commons-math3/3.5/commons-math3-3.5.jar"
+    }
+  ],
+  "edges": [
+    {
+      "from": "com.fasterxml.jackson.core:jackson-databind:2.15.2",
+      "to": "com.fasterxml.jackson.core:jackson-annotations:2.15.2"
+    },
+    {
+      "from": "com.fasterxml.jackson.core:jackson-databind:2.15.2",
+      "to": "com.fasterxml.jackson.core:jackson-core:2.15.2"
+    },
+    {
+      "from": "com.github.wendykierp:JTransforms:3.1",
+      "to": "pl.edu.icm:JLargeArrays:1.5"
+    },
+    {
+      "from": "com.github.wendykierp:JTransforms:3.1",
+      "to": "org.apache.commons:commons-math3:3.5"
+    },
+    {
+      "from": "pl.edu.icm:JLargeArrays:1.5",
+      "to": "org.apache.commons:commons-math3:3.5"
+    }
+  ]
+}

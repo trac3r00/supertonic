@@ -1,0 +1,1 @@
+"""Registered validation scenario adapters."""

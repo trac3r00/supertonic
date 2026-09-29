@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonic.local/contracts/v1/contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "contractVersion", "unicodeVersion", "model", "api", "inputs", "limits", "text", "audio", "lifecycle", "errors", "providers", "resourceProfiles", "reproducibility"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "contractVersion": {"const": "1.0.0"},
+    "unicodeVersion": {"const": "15.1.0"},
+    "model": {"type": "object", "required": ["name", "revision", "defaultDtype"]},
+    "api": {"type": "object", "required": ["operations", "rawBatchIsSingleInference", "legacyEntryPointsDelegate"]},
+    "inputs": {"type": "object", "required": ["encoding", "languages", "expressionTags", "defaults", "presets", "explicitStepsPrecedence", "profilesMayOnlyChangeResources"]},
+    "limits": {"type": "object", "required": ["rawUnicodeScalarsPerItem", "sdkRawBatchItems", "httpCompatibilityBatchItems", "steps", "speed", "silenceSeconds", "predictedAudioSecondsPerChunk", "materializedAudioSecondsPerRequest", "operatorLimitsDownwardOnly", "checkedAdmissionForIncreases"]},
+    "text": {"type": "object", "required": ["validationOrder", "normalization", "normalizationSource", "graphemeSource", "wrappersExcludedFromChunkBudget", "recognizedTagsIndivisible", "chunkScalarBudgets", "segmentationOrder", "astralScalarsRetained", "emptyAfterPreprocessingInvalid"]},
+    "audio": {"type": "object", "required": ["format", "durationSource", "neverPadShortModelOutput", "neverReadBeyondActualSamples", "silenceSamples", "silenceInsertedOnceBetweenChunks", "chunkOwnership", "maxRetainedStreamingChunks", "wavPcm16ClampSeparate"]},
+    "lifecycle": {"type": "object", "required": ["runningRequestsPerEngine", "serviceQueueLimitFormula", "closeIdempotent", "callsAfterClose", "closeCancelsQueued", "closeRequestsCooperativeCancellation", "closeWaitsForNativeOperation", "cancellationPollStages", "nativeCallInterruptibilityGuaranteed", "isolatedWorkerGraceTermination"]},
+    "errors": {"type": "object", "required": ["codes", "fields", "optionalFields", "publicAssertionsForbidden"]},
+    "providers": {"type": "object", "required": ["nativeDefault", "webDefault", "autoMayNegotiate", "explicitUnavailableRequiresOptInFallback", "fallbackRequiresCompatibleDtype", "fallbackReportsCause", "fallbackForbiddenFor", "capabilityFields"]},
+    "resourceProfiles": {"type": "object", "required": ["edge", "desktop", "server", "memoryBudgetIsTotalProcessGuarantee"]},
+    "reproducibility": {"type": "object", "required": ["seedScope", "crossPortNoise", "validationBypassForOrdinaryCallers"]}
+  }
+}

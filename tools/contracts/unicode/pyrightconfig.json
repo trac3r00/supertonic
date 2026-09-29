@@ -1,0 +1,14 @@
+{
+  "include": [
+    "generate.py",
+    "unicode_tables.py",
+    "artifact_models.py",
+    "test_generator.py",
+    "test_grapheme_tables.py"
+  ],
+  "stubPath": "typings",
+  "pythonVersion": "3.11",
+  "extraPaths": [
+    "../../.."
+  ]
+}

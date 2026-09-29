@@ -1,4 +1,6 @@
 assets/
+!/tools/assets/
+!/tools/assets/**
 
 *.onnx
 onnx
@@ -31,6 +33,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 package-lock.json
+# Lockfiles pinned by contracts/v1/dependencies.json
+!/nodejs/package-lock.json
+!/web/package-lock.json
 
 # Swift
 .build/

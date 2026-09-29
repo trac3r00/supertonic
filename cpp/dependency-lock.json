@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "runtime": "cpp",
+  "resolver": {
+    "kind": "operator-owned-system-library",
+    "lockfileSupport": false,
+    "resolution": "configure-time",
+    "command": "cmake -S cpp -B <build-dir> -DSUPERTONIC_ORT_ROOT=<single-onnxruntime-prefix>"
+  },
+  "dependencies": [
+    {
+      "name": "onnxruntime",
+      "role": "native-inference",
+      "source": "system",
+      "version": null,
+      "versionPolicy": "record the configure-time library/header tuple; do not substitute a binary from another binding",
+      "requiredHeader": "onnxruntime_c_api.h",
+      "requiredCxxHeader": "onnxruntime_cxx_api.h",
+      "requiredCMakeTarget": "onnxruntime::onnxruntime",
+      "requiredPkgConfigName": "libonnxruntime",
+      "requiredCMakeFacts": [
+        "resolved binary path",
+        "resolved C API header path",
+        "ORT_API_VERSION"
+      ]
+    },
+    {
+      "name": "nlohmann_json",
+      "role": "json",
+      "source": "system",
+      "version": null,
+      "versionPolicy": "resolve one operator-owned CMake package at configure time",
+      "requiredCMakeTarget": "nlohmann_json::nlohmann_json"
+    }
+  ],
+  "platformConstraints": {
+    "minimumCMake": "3.15",
+    "cxxStandard": 17,
+    "systemPrerequisites": [
+      "C++17 compiler",
+      "one ONNX Runtime header/library prefix",
+      "nlohmann_json CMake package",
+      "PkgConfig executable"
+    ]
+  }
+}

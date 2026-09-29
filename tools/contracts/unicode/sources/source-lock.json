@@ -1,0 +1,36 @@
+{
+  "format": "supertonic.unicode.source-lock.v1",
+  "unicode_version": "15.1.0",
+  "sources": [
+    {
+      "file": "DerivedCoreProperties.txt",
+      "sha256": "f55d0db69123431a7317868725b1fcbf1eab6b265d756d1bd7f0f6d9f9ee108b",
+      "url": "https://www.unicode.org/Public/15.1.0/ucd/DerivedCoreProperties.txt"
+    },
+    {
+      "file": "GraphemeBreakProperty.txt",
+      "sha256": "a7e52eee647e52dc210b8719b4d7037276f4b353810293d69377fc46374cec3f",
+      "url": "https://www.unicode.org/Public/15.1.0/ucd/auxiliary/GraphemeBreakProperty.txt"
+    },
+    {
+      "file": "GraphemeBreakTest.txt",
+      "sha256": "ed9c5e92fd0911ccbeeb63c97cb19c519ea272ff1112ce843abd991582dd848f",
+      "url": "https://www.unicode.org/Public/15.1.0/ucd/auxiliary/GraphemeBreakTest.txt"
+    },
+    {
+      "file": "LICENSE-Unicode-3.0.txt",
+      "sha256": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96",
+      "url": "https://www.unicode.org/license.txt"
+    },
+    {
+      "file": "UnicodeData.txt",
+      "sha256": "2fc713e6a31a87c4850a37fe2caffa4218180fadb5de86b43a143ddb4581fb86",
+      "url": "https://www.unicode.org/Public/15.1.0/ucd/UnicodeData.txt"
+    },
+    {
+      "file": "emoji-data.txt",
+      "sha256": "d7aef489c8fe4c14f09ea5695200277c6b93ac82ac60845cdd2161b0d6835cc1",
+      "url": "https://www.unicode.org/Public/15.1.0/ucd/emoji/emoji-data.txt"
+    }
+  ]
+}

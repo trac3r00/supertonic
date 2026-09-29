@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonic.local/contracts/v1/error.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message", "stage", "request_id", "retryable"],
+  "properties": {
+    "code": {"enum": ["INVALID_ARGUMENT", "UNSUPPORTED_LANGUAGE", "UNSUPPORTED_CHARACTER", "STYLE_MISMATCH", "MODEL_NOT_FOUND", "MODEL_CORRUPT", "MODEL_INCOMPATIBLE", "PROVIDER_UNAVAILABLE", "RESOURCE_EXHAUSTED", "CANCELLED", "DEADLINE_EXCEEDED", "ENGINE_CLOSED", "INFERENCE_FAILED", "WORKER_EXITED", "TRANSPORT_ERROR"]},
+    "message": {"type": "string", "minLength": 1},
+    "stage": {"type": "string", "minLength": 1},
+    "request_id": {"type": "string", "minLength": 1},
+    "cause": {"type": "string"},
+    "retryable": {"type": "boolean"}
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonic.local/contracts/v1/capabilities.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["configured_provider", "actual_provider", "graph_placement", "device", "dtype", "thread_budgets", "cancellation_granularity", "support_status"],
+  "properties": {
+    "configured_provider": {"type": "string"},
+    "actual_provider": {"type": "string"},
+    "graph_placement": {"type": ["string", "null"]},
+    "device": {"type": "string"},
+    "dtype": {"type": "string"},
+    "thread_budgets": {"type": "object"},
+    "cancellation_granularity": {"type": "array", "items": {"type": "string"}},
+    "support_status": {"enum": ["implemented", "verified_physical", "blocked_no_hardware", "blocked_assets", "unsupported", "failed"]}
+  }
+}

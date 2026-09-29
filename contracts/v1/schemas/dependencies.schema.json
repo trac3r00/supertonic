@@ -1,0 +1,585 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonic.ai/contracts/v1/schemas/dependencies.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "baseline",
+    "producerFacts",
+    "environments",
+    "resolutions",
+    "nativeAbiConstraints",
+    "ortDistributions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "enum": [
+        "pending_producer_facts",
+        "complete"
+      ]
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceCommit",
+        "sourceWorktreeDirty"
+      ],
+      "properties": {
+        "sourceCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "sourceWorktreeDirty": {
+          "type": "boolean"
+        }
+      }
+    },
+    "producerFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task6a",
+        "task6b",
+        "task6c"
+      ],
+      "properties": {
+        "task6a": {
+          "enum": [
+            "pending",
+            "complete"
+          ]
+        },
+        "task6b": {
+          "enum": [
+            "pending",
+            "complete"
+          ]
+        },
+        "task6c": {
+          "enum": [
+            "pending",
+            "complete"
+          ]
+        }
+      }
+    },
+    "producerEvidence": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task",
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "task": {
+            "enum": [
+              "task6a",
+              "task6b",
+              "task6c"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^\\.omo/evidence/task-6(?:[abc]|-verifier)/[A-Za-z0-9._/-]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "futureGpuCorrection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "historicalPin",
+        "historicalStatus",
+        "intendedPin",
+        "wheel",
+        "cpuBaselinePin",
+        "separateEnvironment",
+        "registryAvailability",
+        "physicalProviderQuality",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "const": "EC1"
+        },
+        "historicalPin": {
+          "const": "onnxruntime-gpu==1.23.1"
+        },
+        "historicalStatus": {
+          "const": "unpublished_404"
+        },
+        "intendedPin": {
+          "const": "onnxruntime-gpu==1.23.2"
+        },
+        "wheel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pythonTag",
+            "platform",
+            "sha256",
+            "requiresPython"
+          ],
+          "properties": {
+            "pythonTag": {
+              "const": "cp311"
+            },
+            "platform": {
+              "const": "manylinux_2_27_x86_64.manylinux_2_28_x86_64"
+            },
+            "sha256": {
+              "const": "d76d1ac7a479ecc3ac54482eea4ba3b10d68e888a0f8b5f420f0bdf82c5eec59"
+            },
+            "requiresPython": {
+              "const": ">=3.10"
+            }
+          }
+        },
+        "cpuBaselinePin": {
+          "const": "onnxruntime==1.23.1"
+        },
+        "separateEnvironment": {
+          "const": true
+        },
+        "registryAvailability": {
+          "const": "verified"
+        },
+        "physicalProviderQuality": {
+          "const": "unverified"
+        },
+        "provenance": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "pattern": "^\\.omo/ulw-execute/[A-Za-z0-9._/-]+$"
+          }
+        }
+      }
+    },
+    "rustCorrection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "selectedOrt",
+        "selectedOrtSys",
+        "selectedNdarray",
+        "runtimeFamily",
+        "apiVersion",
+        "nativeArtifactIsolation",
+        "rc7Status",
+        "modelQualification",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "const": "EC2"
+        },
+        "selectedOrt": {
+          "const": "2.0.0-rc.13"
+        },
+        "selectedOrtSys": {
+          "const": "2.0.0-rc.13"
+        },
+        "selectedNdarray": {
+          "const": "0.17.2"
+        },
+        "runtimeFamily": {
+          "const": "1.28"
+        },
+        "apiVersion": {
+          "const": 27
+        },
+        "nativeArtifactIsolation": {
+          "const": "task_scoped"
+        },
+        "rc7Status": {
+          "const": "blocked_source_incompatible"
+        },
+        "modelQualification": {
+          "const": "unverified"
+        },
+        "provenance": {
+          "type": "string",
+          "const": ".omo/evidence/task-6b/factreport-for-6d.md"
+        }
+      }
+    },
+    "flutterCompatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declaredSdk",
+        "effectiveDartSdk",
+        "effectiveFlutterSdk",
+        "dart35Qualification",
+        "flutterQualification",
+        "provenance"
+      ],
+      "properties": {
+        "declaredSdk": {
+          "const": "^3.5.0"
+        },
+        "effectiveDartSdk": {
+          "const": ">=3.9.0 <4.0.0"
+        },
+        "effectiveFlutterSdk": {
+          "const": ">=3.35.0"
+        },
+        "dart35Qualification": {
+          "const": "unverified"
+        },
+        "flutterQualification": {
+          "const": "unverified"
+        },
+        "provenance": {
+          "const": ".omo/evidence/task-6c/correction1/flutter-facts.json"
+        }
+      }
+    },
+    "environments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "runtime",
+          "identity"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "runtime": {
+            "enum": [
+              "py",
+              "nodejs",
+              "web",
+              "cpp",
+              "rust",
+              "go",
+              "csharp",
+              "java",
+              "swift",
+              "ios",
+              "flutter"
+            ]
+          },
+          "identity": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]*$"
+          }
+        }
+      }
+    },
+    "resolutions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime",
+          "environmentIds",
+          "lockfile",
+          "pins",
+          "resolutionStatus",
+          "verification"
+        ],
+        "properties": {
+          "runtime": {
+            "enum": [
+              "py",
+              "nodejs",
+              "web",
+              "cpp",
+              "rust",
+              "go",
+              "csharp",
+              "java",
+              "swift",
+              "ios",
+              "flutter"
+            ]
+          },
+          "environmentIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            }
+          },
+          "lockfile": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!/).+$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          },
+          "additionalLockfiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^(?!/).+$"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          },
+          "sourceFiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^(?!/).+$"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          },
+          "resolutionStatus": {
+            "enum": [
+              "lock_resolved",
+              "operator_prerequisite",
+              "declaration_only"
+            ]
+          },
+          "verification": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "registry",
+              "lock",
+              "nativeBinary",
+              "model",
+              "hardware"
+            ],
+            "properties": {
+              "registry": {
+                "enum": [
+                  "verified",
+                  "unverified",
+                  "not_applicable"
+                ]
+              },
+              "lock": {
+                "enum": [
+                  "verified",
+                  "unverified",
+                  "not_applicable"
+                ]
+              },
+              "nativeBinary": {
+                "enum": [
+                  "verified",
+                  "resolver_verified",
+                  "build_metadata_verified",
+                  "unverified",
+                  "prerequisite_missing",
+                  "not_applicable"
+                ]
+              },
+              "model": {
+                "enum": [
+                  "unverified"
+                ]
+              },
+              "hardware": {
+                "enum": [
+                  "unverified"
+                ]
+              }
+            }
+          },
+          "pins": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "lockToken"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9@._/:-]*$"
+                },
+                "version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[0-9][0-9A-Za-z.+-]*$"
+                },
+                "lockToken": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "requirement": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "nativeAbiConstraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime",
+          "binding",
+          "bindingVersion",
+          "ortApiVersion",
+          "requiredRuntimeVersion"
+        ],
+        "properties": {
+          "runtime": {
+            "enum": [
+              "go",
+              "rust"
+            ]
+          },
+          "binding": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9@._/:-]*$"
+          },
+          "bindingVersion": {
+            "type": "string",
+            "pattern": "^[0-9][0-9A-Za-z.+-]*$"
+          },
+          "ortApiVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "requiredRuntimeVersion": {
+            "type": "string",
+            "pattern": "^[0-9][0-9A-Za-z.+-]*$"
+          },
+          "typedDependency": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "version"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9@._/:-]*$"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^[0-9][0-9A-Za-z.+-]*$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "ortDistributions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "environmentId",
+          "runtime",
+          "package",
+          "variant"
+        ],
+        "properties": {
+          "environmentId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "runtime": {
+            "enum": [
+              "py",
+              "nodejs",
+              "web",
+              "cpp",
+              "rust",
+              "go",
+              "csharp",
+              "java",
+              "swift",
+              "ios",
+              "flutter"
+            ]
+          },
+          "package": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9@._/:-]*$"
+          },
+          "variant": {
+            "enum": [
+              "cpu",
+              "gpu"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

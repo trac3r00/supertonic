@@ -1,0 +1,8 @@
+{
+  "code": "RESOURCE_EXHAUSTED",
+  "message": "request exceeds configured materialized audio limit",
+  "stage": "admission",
+  "request_id": "fixture-error-1",
+  "cause": "predicted duration exceeds 3600 seconds",
+  "retryable": false
+}

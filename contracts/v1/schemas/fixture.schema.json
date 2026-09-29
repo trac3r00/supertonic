@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supertonic.local/contracts/v1/fixture.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "kind", "input", "expected"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["text", "request", "batch", "style", "duration", "audio", "lifecycle", "provider", "capabilities"]},
+    "input": {"type": "object"},
+    "expected": {"type": "object"},
+    "notes": {"type": "string"}
+  }
+}

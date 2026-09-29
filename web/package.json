@@ -13,9 +13,12 @@
   "license": "MIT",
   "dependencies": {
     "fft.js": "^4.0.3",
-    "onnxruntime-web": "^1.17.0"
+    "onnxruntime-web": "1.23.2"
   },
   "devDependencies": {
     "vite": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }
