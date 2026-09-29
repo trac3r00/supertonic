@@ -53,6 +53,14 @@ async function sha256(path: string): Promise<string> {
 }
 
 export async function verifyDataDirectory(directory: string): Promise<void> {
+  // A linked root would make every relative component check pass for data stored elsewhere.
+  const root = await lstat(directory)
+  if (root.isSymbolicLink()) {
+    throw new DataVerificationError(`packaged data directory is a link: ${directory}`)
+  }
+  if (!root.isDirectory()) {
+    throw new DataVerificationError(`packaged data path is not a directory: ${directory}`)
+  }
   const sourceHashes = hashSchema.parse(
     JSON.parse(await readFile(resolve(directory, "source-hashes.json"), "utf8")),
   )

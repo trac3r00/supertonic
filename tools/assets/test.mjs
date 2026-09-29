@@ -11,7 +11,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { link, mkdir, readFile, readdir, unlink } from 'node:fs/promises';
 import { acquireLock, ensureDirectory } from './cache.mjs';
@@ -250,7 +250,7 @@ async function directoryAndLockRaces() {
   });
   assert.ok(lock);
   assert.equal(JSON.parse(await readFile(lock, 'utf8')).pid, process.pid);
-  assert.deepEqual(await readdir(join(cache, '.locks')), [lock.split('/').pop()]);
+  assert.deepEqual(await readdir(join(cache, '.locks')), [basename(lock)]);
   await unlink(lock);
 
   let competitorLock;

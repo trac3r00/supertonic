@@ -262,6 +262,25 @@ test("materialization stops collecting when the sample limit is exceeded", async
   expect(adapter.prepares).toBe(2)
 })
 
+test("batch materialization applies the same sample limit as single synthesis", async () => {
+  const adapter = new Adapter()
+  adapter.durations = [0.7, 0.2]
+  const limited = engine(adapter, { maxMaterializedSeconds: 0.1 })
+  await expect(limited.synthesizeBatch([request(), request("Hey.")])).rejects.toMatchObject({
+    code: "RESOURCE_EXHAUSTED",
+    message: "materialized audio limit exceeded",
+    stage: "audio_admission",
+    requestId: "r1",
+  })
+  for (const maxMaterializedSeconds of [Number.NaN, Infinity, -1]) {
+    const invalid = engine(new Adapter(), { maxMaterializedSeconds })
+    await expect(invalid.synthesizeBatch([request()])).rejects.toMatchObject({
+      code: "INVALID_ARGUMENT",
+      stage: "audio_validation",
+    })
+  }
+})
+
 test("seed repeats default noise on the same engine", async () => {
   const adapter = new Adapter()
   const runtime = engine(adapter)

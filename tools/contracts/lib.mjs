@@ -561,16 +561,22 @@ function decomposeScalar(codepoint, output) {
 function normalizeNfkd151(text) {
   const scalars = [];
   for (const character of text) decomposeScalar(character.codePointAt(0), scalars);
-  for (let index = 1; index < scalars.length; index++) {
-    let current = index;
-    const currentClass = combiningClasses.get(scalars[current]) ?? 0;
-    if (currentClass === 0) continue;
-    while (current > 0) {
-      const previousClass = combiningClasses.get(scalars[current - 1]) ?? 0;
-      if (previousClass === 0 || previousClass <= currentClass) break;
-      [scalars[current - 1], scalars[current]] = [scalars[current], scalars[current - 1]];
-      current--;
+  // Canonical ordering is a stable sort of each maximal nonstarter run by combining class.
+  // Array.prototype.sort is stable, so this is O(n log n) instead of quadratic insertion.
+  const classOf = (scalar) => combiningClasses.get(scalar) ?? 0;
+  let start = 0;
+  while (start < scalars.length) {
+    if (classOf(scalars[start]) === 0) {
+      start++;
+      continue;
     }
+    let end = start + 1;
+    while (end < scalars.length && classOf(scalars[end]) !== 0) end++;
+    if (end - start > 1) {
+      const run = scalars.slice(start, end).sort((a, b) => classOf(a) - classOf(b));
+      for (let offset = 0; offset < run.length; offset++) scalars[start + offset] = run[offset];
+    }
+    start = end;
   }
   return scalars.map((scalar) => String.fromCodePoint(scalar)).join("");
 }

@@ -2,7 +2,7 @@ import { SupertonicError } from "./errors.js"
 import { runInference } from "./inference.js"
 import { roundSampleCount } from "./pcm.js"
 import { parseSynthesisRequest } from "./request.js"
-import { materializeResult } from "./result.js"
+import { materializedSampleLimit, materializeResult } from "./result.js"
 import { checkAbort, fillNormalNoise, toPublicError } from "./runtime-utils.js"
 import type {
   InferenceAdapter,
@@ -276,6 +276,7 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
         false,
       )
     }
+    const maxSamples = materializedSampleLimit(options.config, requestId)
     enter(requestId)
     try {
       await load(signal)
@@ -287,6 +288,19 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
         0,
         { adapter, config: options.config, progress, noise },
       )
+      let totalSamples = 0
+      for (const item of items) {
+        totalSamples += item.pcmFloat32.length
+        if (totalSamples > maxSamples) {
+          throw new SupertonicError(
+            "RESOURCE_EXHAUSTED",
+            "materialized audio limit exceeded",
+            "audio_admission",
+            requestId,
+            false,
+          )
+        }
+      }
       const first = requests[0]
       if (first === undefined)
         throw new SupertonicError(

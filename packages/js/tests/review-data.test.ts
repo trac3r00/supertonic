@@ -119,21 +119,36 @@ describe("review regressions", () => {
     }
   })
 
-  test("normalizes admitted text whose NFKD expansion exceeds the engine argument limit", () => {
+  test("normalizes admitted text whose NFKD expansion exceeds the engine argument limit", async () => {
     const text = "\uFDFA".repeat(8_000)
     expect(normalizeNfkd151(text)).toBe("صلى الله عليه وسلم".repeat(8_000))
-    const node = spawnSync(
-      "node",
-      [
-        "--experimental-strip-types",
-        "--input-type=module",
-        "-e",
-        'import { normalizeNfkd151 } from "./src/unicode-data.ts"; console.log(normalizeNfkd151("\\uFDFA".repeat(8000)).length)',
-      ],
-      { cwd: join(import.meta.dir, ".."), encoding: "utf8" },
-    )
-    expect(node.status).toBe(0)
-    expect(node.stdout.trim()).toBe("144000")
+    // Node's own argument limit is what this guards, so run the same source under Node.
+    // Bundle it to plain JavaScript first so every supported Node release (>=22) can run it
+    // without relying on --experimental-strip-types (Node >=22.6 only).
+    const outdir = await mkdtemp(join(tmpdir(), "supertonic-node-nfkd-"))
+    try {
+      const entry = join(outdir, "entry.ts")
+      await writeFile(
+        entry,
+        `import { normalizeNfkd151 } from ${JSON.stringify(join(import.meta.dir, "../src/unicode-data.ts"))}\n` +
+          'console.log(normalizeNfkd151("\\uFDFA".repeat(8000)).length)\n',
+      )
+      const bundle = await Bun.build({
+        entrypoints: [entry],
+        outdir,
+        target: "node",
+        format: "esm",
+      })
+      expect(bundle.success).toBe(true)
+      const script = bundle.outputs[0]?.path ?? ""
+      const node = spawnSync("node", [script], { encoding: "utf8" })
+      expect(node.error, "a node binary is required to run this Node-runtime check").toBeUndefined()
+      expect(node.stderr).toBe("")
+      expect(node.status).toBe(0)
+      expect(node.stdout.trim()).toBe("144000")
+    } finally {
+      await rm(outdir, { recursive: true, force: true })
+    }
   })
 
   test("charges expression tags by their normalized scalar length", () => {
@@ -172,6 +187,28 @@ describe("review regressions", () => {
     )
   })
 
+  test("reports the message of the issue that determines the error code", () => {
+    const style_ttl = { dims: [1, 1, 1], data: [Number.NaN] }
+    const voice_style = {
+      style_ttl,
+      style_dp: { dims: [1, 1, 1], data: [0] },
+    }
+    let styleMessage = ""
+    try {
+      parseSynthesisRequest({ text: "Hello.", language: "en", voice_style }, "r")
+    } catch (error) {
+      styleMessage = (error as Error).message
+    }
+    expect(styleMessage).not.toBe("")
+    expect(() => parseSynthesisRequest({ language: "en", voice_style }, "r")).toThrow(
+      expect.objectContaining({
+        code: "STYLE_MISMATCH",
+        stage: "style_validation",
+        message: styleMessage,
+      }),
+    )
+  })
+
   test("rejects a link at an allowed packaged data path", async () => {
     await withDataDirectory(async (directory) => {
       const path = join(directory, "contract.json")
@@ -182,6 +219,20 @@ describe("review regressions", () => {
         await expect(verifyDataDirectory(directory)).rejects.toThrow("link")
       } finally {
         await rm(outside, { force: true })
+      }
+    })
+  })
+
+  test("rejects a symlinked packaged data root before reading it", async () => {
+    await withDataDirectory(async (directory) => {
+      const linked = join(directory, "..", `${basename(directory)}-root-link`)
+      try {
+        await symlink(directory, linked)
+        await expect(verifyDataDirectory(linked)).rejects.toThrow(
+          "packaged data directory is a link",
+        )
+      } finally {
+        await rm(linked, { force: true })
       }
     })
   })

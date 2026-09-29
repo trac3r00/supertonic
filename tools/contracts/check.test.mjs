@@ -344,6 +344,7 @@ test("every declared fixture expectation is checked, including expression and li
       writeFileSync(fixturePath, `${records.map(JSON.stringify).join("\n")}\n`);
       const result = run("--fixtures", temporary, "--mode", "valid");
       assert.notEqual(result.status, 0, `${id}: changed expectation must be rejected`);
+      assert.match(result.stderr, new RegExp(id));
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
@@ -367,6 +368,7 @@ test("declared error stage, request id, and retryability cannot be corrupted", (
       writeFileSync(fixturePath, `${records.map(JSON.stringify).join("\n")}\n`);
       const result = run("--fixtures", temporary, "--mode", "valid");
       assert.notEqual(result.status, 0, `${id}: changed error expectation must be rejected`);
+      assert.match(result.stderr, new RegExp(id));
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }

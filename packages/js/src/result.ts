@@ -2,6 +2,21 @@ import { SupertonicError } from "./errors.js"
 import { concatenatePcm, roundSampleCount } from "./pcm.js"
 import type { PipelineConfig, SynthesisChunk, SynthesisRequest, SynthesisResult } from "./types.js"
 
+// Per-request materialized PCM ceiling in samples, shared by single and batch synthesis.
+export function materializedSampleLimit(config: PipelineConfig, requestId: string): number {
+  const configuredLimit = config.maxMaterializedSeconds ?? 3600
+  if (!Number.isFinite(configuredLimit) || configuredLimit < 0) {
+    throw new SupertonicError(
+      "INVALID_ARGUMENT",
+      "materialized audio limit must be finite and nonnegative",
+      "audio_validation",
+      requestId,
+      false,
+    )
+  }
+  return Math.min(configuredLimit, 3600) * config.sampleRate
+}
+
 export function materializeResult(
   chunks: readonly Float32Array[],
   metadata: SynthesisChunk | undefined,
@@ -17,17 +32,7 @@ export function materializeResult(
       false,
     )
   }
-  const configuredLimit = config.maxMaterializedSeconds ?? 3600
-  if (!Number.isFinite(configuredLimit) || configuredLimit < 0) {
-    throw new SupertonicError(
-      "INVALID_ARGUMENT",
-      "materialized audio limit must be finite and nonnegative",
-      "audio_validation",
-      metadata.requestId,
-      false,
-    )
-  }
-  const maxSamples = Math.min(configuredLimit, 3600) * config.sampleRate
+  const maxSamples = materializedSampleLimit(config, metadata.requestId)
   const silenceSamples = roundSampleCount(config.sampleRate * request.silenceSeconds)
   let totalSamples = 0
   for (let index = 0; index < chunks.length; index += 1) {

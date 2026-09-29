@@ -80,20 +80,24 @@ export function normalizeNfkd151(text: string): string {
     const codepoint = character.codePointAt(0)
     if (codepoint !== undefined) decomposeScalar(codepoint, decomposed)
   }
-  for (let index = 1; index < decomposed.length; index += 1) {
-    let current = index
-    const currentClass = combiningClasses.get(decomposed[current] ?? 0) ?? 0
-    if (currentClass === 0) continue
-    while (current > 0) {
-      const previousClass = combiningClasses.get(decomposed[current - 1] ?? 0) ?? 0
-      if (previousClass === 0 || previousClass <= currentClass) break
-      const previous = decomposed[current - 1]
-      const value = decomposed[current]
-      if (previous === undefined || value === undefined) break
-      decomposed[current - 1] = value
-      decomposed[current] = previous
-      current -= 1
+  // Canonical ordering is a stable sort of each maximal nonstarter run by combining class.
+  // Array.prototype.sort is stable, so this is O(n log n) instead of quadratic insertion.
+  const classOf = (scalar: number): number => combiningClasses.get(scalar) ?? 0
+  let start = 0
+  while (start < decomposed.length) {
+    if (classOf(decomposed[start] ?? 0) === 0) {
+      start += 1
+      continue
     }
+    let end = start + 1
+    while (end < decomposed.length && classOf(decomposed[end] ?? 0) !== 0) end += 1
+    if (end - start > 1) {
+      const run = decomposed.slice(start, end).sort((a, b) => classOf(a) - classOf(b))
+      for (let offset = 0; offset < run.length; offset += 1) {
+        decomposed[start + offset] = run[offset] ?? 0
+      }
+    }
+    start = end
   }
   const parts: string[] = []
   for (let index = 0; index < decomposed.length; index += 8192) {
