@@ -104,7 +104,13 @@ async function verifyDirectory(directory, manifest) {
   const entry = await exists(directory);
   if (!entry || entry.isSymbolicLink() || !entry.isDirectory()) fail(`model cache is missing or unsafe: ${directory}`);
   for (const file of manifest.files) {
-    const path = join(directory, file.path);
+    let path = directory;
+    for (const component of file.path.split('/').slice(0, -1)) {
+      path = join(path, component);
+      const parent = await exists(path);
+      if (!parent || parent.isSymbolicLink() || !parent.isDirectory()) fail(`missing or unsafe asset: ${file.path}`);
+    }
+    path = join(directory, file.path);
     const fileEntry = await exists(path);
     if (!fileEntry || fileEntry.isSymbolicLink() || !fileEntry.isFile()) fail(`missing or unsafe asset: ${file.path}`);
     const actual = await streamHash(path);

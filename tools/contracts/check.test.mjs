@@ -350,6 +350,35 @@ test("every declared fixture expectation is checked, including expression and li
   }
 });
 
+test("declared error stage, request id, and retryability cannot be corrupted", () => {
+  const probes = [
+    ["rejected.jsonl", "emoji-only", (error) => { error.stage = "text_validation"; }],
+    ["rejected.jsonl", "empty", (error) => { error.stage = "preprocess"; }],
+    ["rejected.jsonl", "provider-no-optin", (error) => { error.retryable = true; }],
+    ["rejected.jsonl", "unsupported-language-zh", (error) => { error.request_id = "other"; }],
+  ];
+  for (const [filename, id, mutate] of probes) {
+    const temporary = mkdtempSync(join(tmpdir(), "supertonic-contracts-"));
+    try {
+      cpSync(fixtures, temporary, { recursive: true });
+      const fixturePath = join(temporary, filename);
+      const records = readFileSync(fixturePath, "utf8").trimEnd().split("\n").map(JSON.parse);
+      mutate(records.find((record) => record.id === id).expected.error);
+      writeFileSync(fixturePath, `${records.map(JSON.stringify).join("\n")}\n`);
+      const result = run("--fixtures", temporary, "--mode", "valid");
+      assert.notEqual(result.status, 0, `${id}: changed error expectation must be rejected`);
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  }
+});
+
+test("pinned normalization handles admitted text whose expansion exceeds the argument limit", async () => {
+  const contract = await readJson(new URL("../../contracts/v1/contract.json", import.meta.url));
+  const actual = evaluateText({ text: "\uFDFA".repeat(8000), language: "ar" }, contract);
+  assert.ok(actual.graphemes.length > 8000);
+});
+
 test("text checks use pinned Unicode 15.1, not host normalization or segmentation", async () => {
   const contract = await readJson(new URL("../../contracts/v1/contract.json", import.meta.url));
   const actual = evaluateText({ text: "\uA7F1", language: "en" }, contract);

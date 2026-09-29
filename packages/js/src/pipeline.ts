@@ -78,8 +78,13 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
     if (state === "ready") return
     if (loadPromise !== undefined) return loadPromise
     state = "loading"
-    loadPromise = adapter
-      .load(AbortSignal.any([signal, closeController.signal]), progress)
+    // Assign loadPromise before adapter code runs so a reentrant close() from a
+    // synchronous progress callback still waits for load to settle.
+    loadPromise = Promise.resolve()
+      .then(() => {
+        ensureOpen("load")
+        return adapter.load(AbortSignal.any([signal, closeController.signal]), progress)
+      })
       .then(() => {
         ensureOpen("load")
         state = "ready"

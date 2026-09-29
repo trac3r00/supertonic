@@ -333,10 +333,18 @@ class AssetResolver:
             raise _error(
                 "MODEL_INCOMPATIBLE", "requested revision differs from manifest", "identity"
             )
-        root = (asset_root if asset_root is not None else self._cache_path(manifest)).resolve(
-            strict=False
-        )
-        if root.is_symlink() or not root.is_dir():
+        if asset_root is not None:
+            unresolved = asset_root
+            link_candidates = [asset_root]
+        else:
+            unresolved = self._cache_path(manifest)
+            model_dir = unresolved.parent
+            link_candidates = [model_dir.parent, model_dir, unresolved]
+        # Check links before resolve(): resolving would follow them and hide the escape.
+        if any(path.is_symlink() for path in link_candidates):
+            raise _error("MODEL_NOT_FOUND", "verified local model bundle is unavailable", "cache")
+        root = unresolved.resolve(strict=False)
+        if not root.is_dir():
             raise _error("MODEL_NOT_FOUND", "verified local model bundle is unavailable", "cache")
         if asset_root is None:
             cached_manifest = _parse_manifest(root / "manifest.json")

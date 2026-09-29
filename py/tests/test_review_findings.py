@@ -81,11 +81,25 @@ def test_asset_directory_symlink_is_rejected_before_hashing(tmp_path: Path) -> N
     assert error.value.code == "MODEL_CORRUPT"
 
 
-def test_symlink_to_bundle_root_is_allowed(tmp_path: Path) -> None:
+def test_symlink_to_explicit_bundle_root_is_rejected(tmp_path: Path) -> None:
     _, manifest, root = _fixture_assets(tmp_path)
     linked = tmp_path / "linked"
     linked.symlink_to(root, target_is_directory=True)
-    assert AssetResolver(manifest).resolve(asset_root=linked).root == root
+    with pytest.raises(AssetResolutionError) as error:
+        AssetResolver(manifest).resolve(asset_root=linked)
+    assert error.value.code == "MODEL_NOT_FOUND"
+
+
+@pytest.mark.parametrize("depth", [0, 1, 2])
+def test_symlinked_cache_components_are_rejected(tmp_path: Path, depth: int) -> None:
+    cache, manifest, root = _fixture_assets(tmp_path)
+    linked = [cache, root.parent, root][depth]
+    outside = tmp_path / "outside"
+    linked.rename(outside)
+    linked.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(AssetResolutionError) as error:
+        AssetResolver(manifest, cache).resolve()
+    assert error.value.code == "MODEL_NOT_FOUND"
 
 
 def test_json_size_checked_before_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

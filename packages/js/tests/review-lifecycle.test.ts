@@ -3,6 +3,7 @@ import {
   createPipelineEngine,
   type InferenceAdapter,
   type PipelineConfig,
+  type ProgressEvent,
   SupertonicError,
 } from "../src/index.js"
 
@@ -45,7 +46,7 @@ class Adapter implements InferenceAdapter<readonly string[], string> {
   durations: readonly number[] = [0.3]
   latents: Float32Array[] = []
   masks: Float32Array[] = []
-  async load(): Promise<void> {
+  async load(_signal: AbortSignal, _progress: (event: ProgressEvent) => void): Promise<void> {
     this.loads += 1
   }
   async prepareText(texts: readonly string[]): Promise<readonly string[]> {
@@ -127,6 +128,41 @@ test("close waits for public load to settle without reopening engine", async () 
   await Promise.allSettled([loading, closing])
   expect(closed).toBeTrue()
   await expect(runtime.load()).rejects.toMatchObject({ code: "ENGINE_CLOSED" })
+})
+
+test("close from a synchronous loading progress callback waits for load to settle", async () => {
+  const started = deferred<void>()
+  const release = deferred<void>()
+  const adapter = new Adapter()
+  let closing: Promise<void> | undefined
+  let loadSettled = false
+  let closed = false
+  adapter.load = async (_signal, progress) => {
+    progress({ kind: "loading", component: "graph", completed: 0, total: 1 })
+    started.resolve()
+    await release.promise
+    loadSettled = true
+  }
+  adapter.close = async () => {
+    if (!loadSettled) throw new Error("adapter closed during load")
+    closed = true
+  }
+  const runtime = engine(
+    adapter,
+    {},
+    {
+      onProgress: () => {
+        if (closing === undefined) closing = runtime.close()
+      },
+    },
+  )
+  const loading = runtime.load()
+  await started.promise
+  expect(closing).toBeDefined()
+  release.resolve()
+  await Promise.allSettled([loading])
+  await closing
+  expect(closed).toBeTrue()
 })
 
 test("batch checks normalized scalar support before loading", async () => {

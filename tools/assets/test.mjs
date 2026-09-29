@@ -7,6 +7,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  renameSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -214,6 +215,11 @@ async function maliciousAndConcurrent() {
     assert.equal(first.status, 0, first.stderr);
     assert.equal(second.status, 0, second.stderr);
     requireSuccess(await run(['verify', '--cache', cache, '--offline']), 'concurrent cache verify');
+    const onnx = join(cache, manifest.model.id, manifest.model.revision, 'onnx');
+    const moved = join(workDir, 'moved-onnx');
+    renameSync(onnx, moved);
+    symlinkSync(moved, onnx);
+    assert.notEqual((await run(['verify', '--cache', cache, '--offline'])).status, 0, 'symlinked asset directory unexpectedly verified');
   });
 }
 

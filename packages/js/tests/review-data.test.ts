@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, rename, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import { verifyDataDirectory } from "../scripts/data-integrity.js"
@@ -170,6 +170,20 @@ describe("review regressions", () => {
     expect(() => parseSynthesisRequest({ ...base, steps: 0 }, "r")).toThrow(
       expect.objectContaining({ code: "INVALID_ARGUMENT", stage: "request_validation" }),
     )
+  })
+
+  test("rejects a link at an allowed packaged data path", async () => {
+    await withDataDirectory(async (directory) => {
+      const path = join(directory, "contract.json")
+      const outside = join(directory, "..", `${basename(directory)}-contract.json`)
+      try {
+        await rename(path, outside)
+        await symlink(outside, path)
+        await expect(verifyDataDirectory(directory)).rejects.toThrow("link")
+      } finally {
+        await rm(outside, { force: true })
+      }
+    })
   })
 
   test("rejects missing and escaping paths in the packaged data hash set", async () => {

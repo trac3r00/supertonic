@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
-import { readFile } from "node:fs/promises"
-import { resolve } from "node:path"
+import { lstat, readFile } from "node:fs/promises"
+import { join, resolve } from "node:path"
 import { z } from "zod"
 
 const hashSchema = z.object({
@@ -30,6 +30,22 @@ export class DataVerificationError extends Error {
   readonly name = "DataVerificationError"
 }
 
+// Every allowed path must be a regular file reached without links, so a link at an allowed
+// name cannot make verification hash bytes outside the data directory.
+async function assertRegularFile(directory: string, relativePath: string): Promise<void> {
+  let current = directory
+  for (const component of relativePath.split("/")) {
+    current = join(current, component)
+    const entry = await lstat(current)
+    if (entry.isSymbolicLink()) {
+      throw new DataVerificationError(`packaged data path contains a link: ${relativePath}`)
+    }
+  }
+  if (!(await lstat(current)).isFile()) {
+    throw new DataVerificationError(`packaged data path is not a file: ${relativePath}`)
+  }
+}
+
 async function sha256(path: string): Promise<string> {
   return createHash("sha256")
     .update(await readFile(path))
@@ -48,6 +64,7 @@ export async function verifyDataDirectory(directory: string): Promise<void> {
     throw new DataVerificationError("source hashes must contain exactly the packaged data paths")
   }
   for (const [relativePath, expected] of Object.entries(sourceHashes.hashes)) {
+    await assertRegularFile(directory, relativePath)
     const actual = await sha256(resolve(directory, relativePath))
     if (actual !== expected) {
       throw new DataVerificationError(`hash mismatch for ${relativePath}: ${actual} != ${expected}`)

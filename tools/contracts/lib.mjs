@@ -572,7 +572,7 @@ function normalizeNfkd151(text) {
       current--;
     }
   }
-  return String.fromCodePoint(...scalars);
+  return scalars.map((scalar) => String.fromCodePoint(scalar)).join("");
 }
 
 function shouldBreak(scalars, index) {
@@ -621,12 +621,28 @@ function splitGraphemes151(text) {
   let start = 0;
   for (let index = 1; index < scalars.length; index++) {
     if (shouldBreak(scalars, index)) {
-      result.push(String.fromCodePoint(...scalars.slice(start, index)));
+      result.push(scalars.slice(start, index).map((scalar) => String.fromCodePoint(scalar)).join(""));
       start = index;
     }
   }
-  if (scalars.length) result.push(String.fromCodePoint(...scalars.slice(start)));
+  if (scalars.length) {
+    result.push(scalars.slice(start).map((scalar) => String.fromCodePoint(scalar)).join(""));
+  }
   return result;
+}
+
+// Scans only the cluster starting at offset; offset is always a cluster boundary, so the
+// lookback rules never need scalars before it.
+function firstGrapheme151(text, offset) {
+  const scalars = [];
+  let end = offset;
+  while (end < text.length) {
+    const scalar = text.codePointAt(end);
+    scalars.push(scalar);
+    if (scalars.length > 1 && shouldBreak(scalars, scalars.length - 1)) break;
+    end += scalar > 0xffff ? 2 : 1;
+  }
+  return text.slice(offset, end);
 }
 
 function replacementNormalize(text) {
@@ -665,7 +681,7 @@ function textUnits(text) {
       offset += match[0].length;
       continue;
     }
-    const segment = splitGraphemes151(text.slice(offset))[0];
+    const segment = firstGrapheme151(text, offset);
     units.push({ text: segment, width: scalarLength(segment), indivisible: true });
     offset += segment.length;
   }
@@ -764,11 +780,13 @@ export function chunkNormalizedText(text, budget) {
 export function evaluateText(input, contract) {
   const { text, language } = input;
   if (!contract.inputs.languages.includes(language)) {
-    return { errorCode: "UNSUPPORTED_LANGUAGE" };
+    return { errorCode: "UNSUPPORTED_LANGUAGE", errorStage: "language_validation" };
   }
-  if (typeof text !== "string") return { errorCode: "INVALID_ARGUMENT" };
+  if (typeof text !== "string" || text.length === 0) {
+    return { errorCode: "INVALID_ARGUMENT", errorStage: "text_validation" };
+  }
   if (scalarLength(text) > contract.limits.rawUnicodeScalarsPerItem) {
-    return { errorCode: "RESOURCE_EXHAUSTED" };
+    return { errorCode: "RESOURCE_EXHAUSTED", errorStage: "raw_text_validation" };
   }
   const normalizedText = replacementNormalize(text);
   const normalizedCodepoints = [...normalizedText].map((character) => character.codePointAt(0));
@@ -783,13 +801,14 @@ export function evaluateText(input, contract) {
     treatedAsData: true,
   };
   if (normalizedText.length === 0) {
-    return { ...details, errorCode: "INVALID_ARGUMENT" };
+    return { ...details, errorCode: "INVALID_ARGUMENT", errorStage: "preprocess" };
   }
   if (normalizedCodepoints.some((codepoint) => codepoint > 0xffff)) {
     return {
       ...details,
       retainedBeforeRejection: true,
       errorCode: "UNSUPPORTED_CHARACTER",
+      errorStage: "indexing",
     };
   }
   const budget = input.chunkLimit ??
@@ -802,7 +821,7 @@ export function evaluateText(input, contract) {
       chunks: chunkNormalizedText(normalizedText, budget),
     };
   } catch {
-    return { ...details, errorCode: "RESOURCE_EXHAUSTED" };
+    return { ...details, errorCode: "RESOURCE_EXHAUSTED", errorStage: "chunking" };
   }
 }
 
@@ -835,13 +854,14 @@ export function evaluateFixture(fixture, contract) {
           execution: input.surface === "http_compat" ? "serialized_bounded_admission" : undefined }
       : {
           errorCode: input.surface === "sdk" ? "RESOURCE_EXHAUSTED" : "INVALID_ARGUMENT",
+          errorStage: input.surface === "sdk" ? "batch_admission" : "http_schema",
           httpStatus: input.surface === "http_compat" ? 422 : undefined,
         };
   }
   if (kind === "request") {
     if (input.steps !== undefined &&
         (!Number.isInteger(input.steps) || input.steps < 1 || input.steps > 100)) {
-      return { errorCode: "INVALID_ARGUMENT" };
+      return { errorCode: "INVALID_ARGUMENT", errorStage: "request_validation" };
     }
     for (const [key, minimum, maximum] of [
       ["speed", 0.7, 2],
@@ -850,7 +870,7 @@ export function evaluateFixture(fixture, contract) {
       if (input[key] !== undefined &&
           (typeof input[key] !== "number" || !Number.isFinite(input[key]) ||
            input[key] < minimum || input[key] > maximum)) {
-        return { errorCode: "INVALID_ARGUMENT" };
+        return { errorCode: "INVALID_ARGUMENT", errorStage: "request_validation" };
       }
     }
     const effectiveSteps = input.steps ??
@@ -862,12 +882,15 @@ export function evaluateFixture(fixture, contract) {
         input.silence_seconds ?? contract.inputs.defaults.silenceSeconds,
     };
   }
-  if (kind === "style") return { errorCode: styleError(input) };
+  if (kind === "style") {
+    const errorCode = styleError(input);
+    return errorCode ? { errorCode, errorStage: "style_validation" } : {};
+  }
   if (kind === "duration") {
     return typeof input.modelDurationSeconds !== "number" ||
       !Number.isFinite(input.modelDurationSeconds) ||
       input.modelDurationSeconds <= 0
-      ? { errorCode: "INFERENCE_FAILED", allocationAttempted: false }
+      ? { errorCode: "INFERENCE_FAILED", errorStage: "duration_validation", allocationAttempted: false }
       : { accepted: true };
   }
   if (kind === "audio") {
@@ -899,10 +922,11 @@ export function evaluateFixture(fixture, contract) {
       return {
         fallbackAttempted: false,
         errorCode: input.failure,
+        errorStage: "model_load",
       };
     }
     if (!input.available && !input.allowFallback) {
-      return { errorCode: "PROVIDER_UNAVAILABLE" };
+      return { errorCode: "PROVIDER_UNAVAILABLE", errorStage: "provider_selection" };
     }
     return {
       actual: input.available ? input.configured : "cpu",
@@ -943,6 +967,16 @@ function compareExpected(fixture, actual, errorSchema) {
         `fixture expected ${expected.error.code} but validator produced ${actual.errorCode ?? "success"}`,
         fixture.id,
       );
+    }
+    // Messages are prose; every other public error field is machine-consumed.
+    const actualError = { stage: actual.errorStage, request_id: "fixture-request", retryable: false };
+    for (const [field, value] of Object.entries(actualError)) {
+      if (expected.error[field] !== value) {
+        throw new ContractValidationError(
+          `fixture error ${field} mismatch; expected ${JSON.stringify(expected.error[field])}, got ${JSON.stringify(value)}`,
+          fixture.id,
+        );
+      }
     }
   } else if (actual.errorCode) {
     throw new ContractValidationError(
