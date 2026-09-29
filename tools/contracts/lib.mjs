@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import normalization from "../../contracts/v1/normalization.json" with { type: "json" };
+import grapheme from "../../contracts/v1/grapheme.json" with { type: "json" };
 
 export const EXPECTED_LANGUAGES = [
   "en", "ko", "ja", "ar", "bg", "cs", "da", "de", "el", "es", "et",
@@ -131,6 +133,9 @@ export function validateSchema(value, schema, path = "$") {
   if (Array.isArray(value)) {
     if (schema.minItems !== undefined && value.length < schema.minItems) {
       throw new ContractValidationError(`must contain at least ${schema.minItems} items`, path);
+    }
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+      throw new ContractValidationError(`must contain at most ${schema.maxItems} items`, path);
     }
     if (schema.items) {
       value.forEach((entry, index) => validateSchema(entry, schema.items, `${path}[${index}]`));
@@ -520,8 +525,112 @@ export async function validateDependencies(dependencies, schema, dependenciesPat
   };
 }
 
+const decompositions = new Map(normalization.decomposition_mappings);
+const combiningClasses = new Map(normalization.canonical_combining_classes);
+const gcbRanges = grapheme.properties.Grapheme_Cluster_Break;
+const pictographicRanges = grapheme.properties.Extended_Pictographic;
+const incbRanges = grapheme.properties.Indic_Conjunct_Break;
+
+function propertyAt(codepoint, ranges) {
+  let low = 0;
+  let high = ranges.length - 1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const [start, end, value] = ranges[middle];
+    if (codepoint < start) high = middle - 1;
+    else if (codepoint > end) low = middle + 1;
+    else return value;
+  }
+  return "Other";
+}
+
+function decomposeScalar(codepoint, output) {
+  const hangul = normalization.hangul;
+  const index = codepoint - hangul.s_base;
+  if (index >= 0 && index < hangul.s_count) {
+    output.push(hangul.l_base + Math.floor(index / hangul.n_count));
+    output.push(hangul.v_base + Math.floor((index % hangul.n_count) / hangul.t_count));
+    if (index % hangul.t_count) output.push(hangul.t_base + index % hangul.t_count);
+    return;
+  }
+  const mapping = decompositions.get(codepoint);
+  if (mapping) for (const scalar of mapping) decomposeScalar(scalar, output);
+  else output.push(codepoint);
+}
+
+function normalizeNfkd151(text) {
+  const scalars = [];
+  for (const character of text) decomposeScalar(character.codePointAt(0), scalars);
+  for (let index = 1; index < scalars.length; index++) {
+    let current = index;
+    const currentClass = combiningClasses.get(scalars[current]) ?? 0;
+    if (currentClass === 0) continue;
+    while (current > 0) {
+      const previousClass = combiningClasses.get(scalars[current - 1]) ?? 0;
+      if (previousClass === 0 || previousClass <= currentClass) break;
+      [scalars[current - 1], scalars[current]] = [scalars[current], scalars[current - 1]];
+      current--;
+    }
+  }
+  return String.fromCodePoint(...scalars);
+}
+
+function shouldBreak(scalars, index) {
+  const left = scalars[index - 1];
+  const right = scalars[index];
+  const leftGcb = propertyAt(left, gcbRanges);
+  const rightGcb = propertyAt(right, gcbRanges);
+  if (leftGcb === "CR" && rightGcb === "LF") return false;
+  if (["Control", "CR", "LF"].includes(leftGcb) ||
+      ["Control", "CR", "LF"].includes(rightGcb)) return true;
+  if (leftGcb === "L" && ["L", "V", "LV", "LVT"].includes(rightGcb)) return false;
+  if (["LV", "V"].includes(leftGcb) && ["V", "T"].includes(rightGcb)) return false;
+  if (["LVT", "T"].includes(leftGcb) && rightGcb === "T") return false;
+  if (["Extend", "ZWJ", "SpacingMark"].includes(rightGcb) || leftGcb === "Prepend") return false;
+  if (propertyAt(right, incbRanges) === "Consonant") {
+    let cursor = index - 1;
+    let linkerSeen = false;
+    while (cursor >= 0) {
+      const property = propertyAt(scalars[cursor], incbRanges);
+      if (property === "Linker") linkerSeen = true;
+      else if (property === "Consonant") return !linkerSeen;
+      else if (property !== "Extend") break;
+      cursor--;
+    }
+  }
+  if (propertyAt(right, pictographicRanges) === "Yes" && leftGcb === "ZWJ") {
+    let cursor = index - 2;
+    while (cursor >= 0 && propertyAt(scalars[cursor], gcbRanges) === "Extend") cursor--;
+    if (cursor >= 0 && propertyAt(scalars[cursor], pictographicRanges) === "Yes") return false;
+  }
+  if (leftGcb === "Regional_Indicator" && rightGcb === "Regional_Indicator") {
+    let count = 0;
+    let cursor = index - 1;
+    while (cursor >= 0 && propertyAt(scalars[cursor], gcbRanges) === "Regional_Indicator") {
+      count++;
+      cursor--;
+    }
+    return count % 2 === 0;
+  }
+  return true;
+}
+
+function splitGraphemes151(text) {
+  const scalars = Array.from(text, (character) => character.codePointAt(0));
+  const result = [];
+  let start = 0;
+  for (let index = 1; index < scalars.length; index++) {
+    if (shouldBreak(scalars, index)) {
+      result.push(String.fromCodePoint(...scalars.slice(start, index)));
+      start = index;
+    }
+  }
+  if (scalars.length) result.push(String.fromCodePoint(...scalars.slice(start)));
+  return result;
+}
+
 function replacementNormalize(text) {
-  let result = text.normalize("NFKD").replace(EMOJI_PATTERN, "");
+  let result = normalizeNfkd151(text).replace(EMOJI_PATTERN, "");
   const replacements = new Map([
     ["–", "-"], ["‑", "-"], ["—", "-"], ["_", " "],
     ["“", "\""], ["”", "\""], ["‘", "'"], ["’", "'"],
@@ -548,7 +657,6 @@ function scalarLength(text) {
 
 function textUnits(text) {
   const units = [];
-  const segmenter = new Intl.Segmenter("und", { granularity: "grapheme" });
   for (let offset = 0; offset < text.length;) {
     EXPRESSION_PATTERN.lastIndex = offset;
     const match = EXPRESSION_PATTERN.exec(text);
@@ -557,13 +665,9 @@ function textUnits(text) {
       offset += match[0].length;
       continue;
     }
-    const segment = segmenter.segment(text.slice(offset))[Symbol.iterator]().next().value;
-    units.push({
-      text: segment.segment,
-      width: scalarLength(segment.segment),
-      indivisible: true,
-    });
-    offset += segment.segment.length;
+    const segment = splitGraphemes151(text.slice(offset))[0];
+    units.push({ text: segment, width: scalarLength(segment), indivisible: true });
+    offset += segment.length;
   }
   return units;
 }
@@ -668,13 +772,22 @@ export function evaluateText(input, contract) {
   }
   const normalizedText = replacementNormalize(text);
   const normalizedCodepoints = [...normalizedText].map((character) => character.codePointAt(0));
+  const details = {
+    normalizedText,
+    normalizedCodepoints,
+    wrappedText: `<${language}>${normalizedText}</${language}>`,
+    expressionTokens: [...normalizedText.matchAll(/<(?:laugh|breath|sigh)>/gu)].map(([token]) => token),
+    graphemes: splitGraphemes151(normalizeNfkd151(text)),
+    boundary: normalizedCodepoints.length,
+    ...(language === "na" ? { transcriptionLanguageHint: "en", preserveText: true } : {}),
+    treatedAsData: true,
+  };
   if (normalizedText.length === 0) {
-    return { normalizedText, normalizedCodepoints, errorCode: "INVALID_ARGUMENT" };
+    return { ...details, errorCode: "INVALID_ARGUMENT" };
   }
   if (normalizedCodepoints.some((codepoint) => codepoint > 0xffff)) {
     return {
-      normalizedText,
-      normalizedCodepoints,
+      ...details,
       retainedBeforeRejection: true,
       errorCode: "UNSUPPORTED_CHARACTER",
     };
@@ -685,12 +798,11 @@ export function evaluateText(input, contract) {
       : contract.text.chunkScalarBudgets.default);
   try {
     return {
-      normalizedText,
-      normalizedCodepoints,
+      ...details,
       chunks: chunkNormalizedText(normalizedText, budget),
     };
   } catch {
-    return { normalizedText, normalizedCodepoints, errorCode: "RESOURCE_EXHAUSTED" };
+    return { ...details, errorCode: "RESOURCE_EXHAUSTED" };
   }
 }
 
@@ -719,7 +831,8 @@ export function evaluateFixture(fixture, contract) {
       ? contract.limits.sdkRawBatchItems
       : contract.limits.httpCompatibilityBatchItems;
     return input.itemCount <= limit
-      ? { accepted: true, httpStatus: input.surface === "http_compat" ? 200 : undefined }
+      ? { accepted: true, httpStatus: input.surface === "http_compat" ? 200 : undefined,
+          execution: input.surface === "http_compat" ? "serialized_bounded_admission" : undefined }
       : {
           errorCode: input.surface === "sdk" ? "RESOURCE_EXHAUSTED" : "INVALID_ARGUMENT",
           httpStatus: input.surface === "http_compat" ? 422 : undefined,
@@ -769,6 +882,9 @@ export function evaluateFixture(fixture, contract) {
   }
   if (kind === "lifecycle") {
     return {
+      closeResults: input.actions.filter((action) => action === "close").map(() => "ok"),
+      queuedCancelled: true,
+      waitsForNativeOperation: true,
       finalError: {
         code: "ENGINE_CLOSED",
         message: "engine is closed",
@@ -798,15 +914,26 @@ export function evaluateFixture(fixture, contract) {
   throw new ContractValidationError(`unsupported fixture kind ${kind}`);
 }
 
+const EXPECTED_FIELDS = {
+  text: ["error", "normalizedText", "normalizedCodepoints", "chunks", "wrappedText",
+    "tokenIds", "expressionTokens", "graphemes", "boundary", "transcriptionLanguageHint",
+    "preserveText", "retainedBeforeRejection", "treatedAsData"],
+  request: ["error", "effectiveSteps", "effectiveSpeed", "effectiveSilenceSeconds"],
+  batch: ["error", "accepted", "httpStatus", "execution"],
+  style: ["error"],
+  duration: ["error", "accepted", "allocationAttempted"],
+  audio: ["validSampleCount", "durationSeconds", "retainedSamples",
+    "silenceSamplesBetweenChunks", "silenceInsertions"],
+  lifecycle: ["closeResults", "finalError", "queuedCancelled", "waitsForNativeOperation"],
+  provider: ["error", "fallbackAttempted", "actual", "dtype", "fallbackCause"],
+  capabilities: ["schemaValid"],
+};
+
 function compareExpected(fixture, actual, errorSchema) {
   const expected = fixture.expected;
-  for (const key of ["httpStatus", "allocationAttempted", "fallbackAttempted"]) {
-    if (expected[key] !== undefined &&
-        JSON.stringify(actual[key]) !== JSON.stringify(expected[key])) {
-      throw new ContractValidationError(
-        `fixture ${key} mismatch; expected ${JSON.stringify(expected[key])}, got ${JSON.stringify(actual[key])}`,
-        fixture.id,
-      );
+  for (const key of Object.keys(expected)) {
+    if (!EXPECTED_FIELDS[fixture.kind].includes(key)) {
+      throw new ContractValidationError(`unexpected ${fixture.kind} expectation ${key}`, fixture.id);
     }
   }
   if (expected.error) {
@@ -817,13 +944,7 @@ function compareExpected(fixture, actual, errorSchema) {
         fixture.id,
       );
     }
-    if (expected.retainedBeforeRejection !== undefined &&
-        actual.retainedBeforeRejection !== expected.retainedBeforeRejection) {
-      throw new ContractValidationError("astral retention mismatch", fixture.id);
-    }
-    return;
-  }
-  if (actual.errorCode) {
+  } else if (actual.errorCode) {
     throw new ContractValidationError(
       `fixture unexpectedly rejected with ${actual.errorCode}`,
       fixture.id,
@@ -831,23 +952,11 @@ function compareExpected(fixture, actual, errorSchema) {
   }
   if (expected.finalError !== undefined) {
     validateSchema(expected.finalError, errorSchema, `${fixture.id}.expected.finalError`);
-    if (JSON.stringify(actual.finalError) !== JSON.stringify(expected.finalError)) {
-      throw new ContractValidationError(
-        `fixture finalError mismatch; expected ${JSON.stringify(expected.finalError)}, got ${JSON.stringify(actual.finalError)}`,
-        fixture.id,
-      );
-    }
   }
   if (expected.tokenIds !== undefined) {
-    const wrappedText = expected.wrappedText;
-    if (typeof wrappedText !== "string") {
-      throw new ContractValidationError("tokenIds require wrappedText", fixture.id);
-    }
     const mappings = fixture.contractModel?.unicodeIndexerKnownTokenIds;
-    if (!mappings) {
-      throw new ContractValidationError("tokenIds require model indexer mappings", fixture.id);
-    }
-    const actualTokenIds = [...wrappedText].map((character) => {
+    if (!mappings) throw new ContractValidationError("tokenIds require model indexer mappings", fixture.id);
+    actual.tokenIds = [...actual.wrappedText].map((character) => {
       const codepoint = String(character.codePointAt(0));
       if (!Object.hasOwn(mappings, codepoint)) {
         throw new ContractValidationError(
@@ -857,21 +966,11 @@ function compareExpected(fixture, actual, errorSchema) {
       }
       return mappings[codepoint];
     });
-    if (JSON.stringify(actualTokenIds) !== JSON.stringify(expected.tokenIds)) {
-      throw new ContractValidationError("tokenIds mismatch pinned model indexer subset", fixture.id);
-    }
   }
-  for (const key of [
-    "normalizedText", "normalizedCodepoints", "chunks", "accepted",
-    "effectiveSteps", "effectiveSpeed", "effectiveSilenceSeconds",
-    "validSampleCount", "durationSeconds", "retainedSamples",
-    "silenceSamplesBetweenChunks", "silenceInsertions", "actual", "dtype",
-    "fallbackCause", "schemaValid",
-  ]) {
-    if (expected[key] !== undefined &&
-        JSON.stringify(actual[key]) !== JSON.stringify(expected[key])) {
+  for (const [key, value] of Object.entries(expected)) {
+    if (key !== "error" && JSON.stringify(actual[key]) !== JSON.stringify(value)) {
       throw new ContractValidationError(
-        `fixture ${key} mismatch; expected ${JSON.stringify(expected[key])}, got ${JSON.stringify(actual[key])}`,
+        `fixture ${key} mismatch; expected ${JSON.stringify(value)}, got ${JSON.stringify(actual[key])}`,
         fixture.id,
       );
     }

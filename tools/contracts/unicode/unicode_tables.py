@@ -56,6 +56,8 @@ def parse_scalar_range(field: str) -> tuple[int, int]:
     end = validate_scalar(int(last, 16)) if separator else start
     if end < start:
         raise GeneratorError(f"descending scalar range {field}")
+    if start < SURROGATE_START and end > SURROGATE_END:
+        raise GeneratorError(f"non-scalar interior in range {field}")
     return start, end
 
 

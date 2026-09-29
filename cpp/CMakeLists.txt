@@ -34,7 +34,9 @@ if(NOT onnxruntime_FOUND)
     
     if(ONNXRUNTIME_FOUND)
         set(ONNXRUNTIME_INCLUDE_DIR ${ONNXRUNTIME_INCLUDE_DIRS})
-        set(ONNXRUNTIME_LIB ${ONNXRUNTIME_LIBRARIES})
+        # LINK_LIBRARIES holds absolute paths; LIBRARIES holds bare names (-l) that
+        # the SUPERTONIC_ORT_ROOT provenance check cannot resolve.
+        set(ONNXRUNTIME_LIB ${ONNXRUNTIME_LINK_LIBRARIES})
     else()
         # Method 3: Manual search in common locations
         find_path(ONNXRUNTIME_INCLUDE_DIR 

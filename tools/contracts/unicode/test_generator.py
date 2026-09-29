@@ -32,6 +32,7 @@ from typing import TypeVar
 import pytest
 from pydantic import TypeAdapter
 
+from tools.contracts.unicode import generate as generator
 from tools.contracts.unicode.artifact_models import (
     GraphemeData,
     LockData,
@@ -182,6 +183,47 @@ def test_generator_rejects_source_hash_mismatch_without_publishing(tmp_path: Pat
     assert "source digest mismatch" in result.stderr
     for filename in EXPECTED_FILES:
         assert (output_dir / filename).read_bytes() == original
+
+
+@pytest.mark.parametrize("missing", generator.REQUIRED_SOURCES)
+def test_generator_requires_every_input_in_source_lock(tmp_path: Path, missing: str) -> None:
+    source_dir = copied_sources(tmp_path)
+    lock_path = source_dir / "source-lock.json"
+    lock = TypeAdapter(LockData).validate_json(lock_path.read_text(encoding="utf-8"))
+    lock["sources"] = [entry for entry in lock["sources"] if entry["file"] != missing]
+    _ = lock_path.write_text(json.dumps(lock), encoding="utf-8")
+    output_dir = tmp_path / "output"
+
+    result = run_generator(output_dir, source_dir=source_dir)
+    assert result.returncode == 2
+    assert missing in result.stderr
+    assert not output_dir.exists()
+
+
+@pytest.mark.parametrize("failure_index", [1, 2, 3])
+@pytest.mark.parametrize("existing", [True, False])
+def test_forced_publication_restores_prior_set_on_replace_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure_index: int, existing: bool,
+) -> None:
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    prior = {filename: (f"prior {filename}\n").encode() for filename in EXPECTED_FILES} if existing else {}
+    for filename, content in prior.items():
+        _ = (output_dir / filename).write_bytes(content)
+    real_replace = os.replace
+    calls = 0
+
+    def fail_replace(source: str | Path, destination: str | Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == failure_index:
+            raise OSError("injected replacement failure")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+    with pytest.raises(OSError, match="injected replacement failure"):
+        generator.publish(output_dir, {filename: b"new" for filename in EXPECTED_FILES}, True)
+    assert {path.name: path.read_bytes() for path in output_dir.iterdir()} == prior
 
 
 def test_generator_treats_source_comments_as_untrusted_data(tmp_path: Path) -> None:

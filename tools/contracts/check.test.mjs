@@ -13,6 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { evaluateText, readJson, validateSchema } from "./lib.mjs";
 
 const cli = new URL("./check.mjs", import.meta.url);
 const fixtures = new URL("../../tests/fixtures/contracts", import.meta.url);
@@ -321,6 +322,70 @@ test("declared lifecycle, HTTP status, and allocation expectations cannot be cor
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
+  }
+});
+
+test("every declared fixture expectation is checked, including expression and lifecycle fields", () => {
+  const probes = [
+    ["accepted.jsonl", "expression-laugh", (expected) => { expected.expressionTokens = ["<sigh>"]; }],
+    ["accepted.jsonl", "lifecycle-close", (expected) => { expected.closeResults = ["failed", "ok"]; }],
+    ["accepted.jsonl", "lifecycle-close", (expected) => { expected.queuedCancelled = false; }],
+    ["accepted.jsonl", "text-en-replacements", (expected) => { expected.wrappedText = "<en>wrong</en>"; }],
+    ["accepted.jsonl", "http-batch-64", (expected) => { expected.execution = "parallel"; }],
+    ["accepted.jsonl", "expression-laugh", (expected) => { expected.unrecognizedExpectation = true; }],
+  ];
+  for (const [filename, id, mutate] of probes) {
+    const temporary = mkdtempSync(join(tmpdir(), "supertonic-contracts-"));
+    try {
+      cpSync(fixtures, temporary, { recursive: true });
+      const fixturePath = join(temporary, filename);
+      const records = readFileSync(fixturePath, "utf8").trimEnd().split("\n").map(JSON.parse);
+      mutate(records.find((record) => record.id === id).expected);
+      writeFileSync(fixturePath, `${records.map(JSON.stringify).join("\n")}\n`);
+      const result = run("--fixtures", temporary, "--mode", "valid");
+      assert.notEqual(result.status, 0, `${id}: changed expectation must be rejected`);
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  }
+});
+
+test("text checks use pinned Unicode 15.1, not host normalization or segmentation", async () => {
+  const contract = await readJson(new URL("../../contracts/v1/contract.json", import.meta.url));
+  const actual = evaluateText({ text: "\uA7F1", language: "en" }, contract);
+  assert.equal(actual.normalizedText, "\uA7F1.");
+  assert.deepEqual(actual.normalizedCodepoints, [0xA7F1, 46]);
+  const segmented = evaluateText({ text: "a\u0897", language: "en", chunkLimit: 1 }, contract);
+  assert.deepEqual(segmented.chunks, ["a", "\u0897", "."]);
+});
+
+test("result items and request voice styles enforce their schema fields", async () => {
+  const schemaRoot = new URL("../../contracts/v1/schemas/", import.meta.url);
+  const [resultSchema, requestSchema, result, request] = await Promise.all([
+    readJson(new URL("result.schema.json", schemaRoot)),
+    readJson(new URL("request.schema.json", schemaRoot)),
+    readJson(new URL("../../tests/fixtures/contracts/result.valid.json", import.meta.url)),
+    readJson(new URL("../../tests/fixtures/contracts/request.valid.json", import.meta.url)),
+  ]);
+  for (const mutation of [
+    (copy) => { copy.items[0].pcm_float32 = "not pcm"; },
+    (copy) => { copy.items[0].valid_sample_count = -1; },
+    (copy) => { copy.items[0].duration_seconds = -1; },
+    (copy) => { copy.items[0].extra = true; },
+  ]) {
+    const copy = structuredClone(result);
+    mutation(copy);
+    assert.throws(() => validateSchema(copy, resultSchema));
+  }
+  for (const mutation of [
+    (copy) => { copy.voice_style = {}; },
+    (copy) => { copy.voice_style.style_ttl.dims = [1, 2]; },
+    (copy) => { copy.voice_style.style_dp.data = ["bad"]; },
+    (copy) => { copy.voice_style.extra = true; },
+  ]) {
+    const copy = structuredClone(request);
+    mutation(copy);
+    assert.throws(() => validateSchema(copy, requestSchema));
   }
 });
 

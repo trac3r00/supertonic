@@ -193,7 +193,7 @@
       ],
       "lockfile": {
         "path": "../../web/package-lock.json",
-        "sha256": "d47e698c0f5d105e7ff17b17f55a594103272547443939e20fd81ad9246e5536"
+        "sha256": "3d8d93fba5e20eb40ad1ba4913f5feda27212ca412c742f24c3b413e61643501"
       },
       "resolutionStatus": "lock_resolved",
       "verification": {
@@ -239,7 +239,7 @@
       "sourceFiles": [
         {
           "path": "../../cpp/CMakeLists.txt",
-          "sha256": "15c65e5b9a1e5af90bc950175b165db28456f479f32e418feb7cefb3f692a528"
+          "sha256": "b7131b9a84c6a9bf926085807269faf27803bfc678464479b0e853a474907315"
         }
       ]
     },

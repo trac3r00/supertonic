@@ -24,9 +24,11 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
 from pydantic import TypeAdapter
 
 from tools.contracts.unicode.artifact_models import GraphemeData
+from tools.contracts.unicode.unicode_tables import GeneratorError, parse_scalar_range, parse_unicode_data
 
 ROOT = Path(__file__).resolve().parents[3]
 GENERATOR = ROOT / "tools/contracts/unicode/generate.py"
@@ -166,6 +168,17 @@ def parse_official_case(line: str) -> tuple[str, list[int]]:
     assert tokens[-1] == "÷"
     boundaries.append(len(scalars))
     return "".join(chr(scalar) for scalar in scalars), boundaries
+
+
+def test_scalar_range_rejects_surrogate_interior() -> None:
+    with pytest.raises(GeneratorError, match="non-scalar"):
+        _ = parse_scalar_range("D7FF..E000")
+    assert parse_scalar_range("E000..E001") == (0xE000, 0xE001)
+
+
+def test_unicode_data_surrogate_records_are_excluded() -> None:
+    mappings, combining = parse_unicode_data(SOURCES / "UnicodeData.txt")
+    assert all(not 0xD800 <= entry[0] <= 0xDFFF for entry in (*mappings, *combining))
 
 
 def test_generated_tables_pass_every_official_grapheme_break_case(tmp_path: Path) -> None:

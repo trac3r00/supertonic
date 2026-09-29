@@ -53,6 +53,10 @@ from tools.contracts.unicode.unicode_tables import (
 DEFAULT_SOURCES: Final = ROOT / "tools/contracts/unicode/sources"
 DEFAULT_OUTPUT: Final = ROOT / "contracts/v1"
 ARTIFACTS: Final = ("normalization.json", "grapheme.json", "unicode-manifest.json")
+REQUIRED_SOURCES: Final = (
+    "UnicodeData.txt", "GraphemeBreakProperty.txt", "emoji-data.txt",
+    "DerivedCoreProperties.txt", "GraphemeBreakTest.txt", "LICENSE-Unicode-3.0.txt",
+)
 UAX29_REVISION: Final = 43
 JsonValue: TypeAlias = str | int | Sequence["JsonValue"] | Mapping[str, "JsonValue"]
 
@@ -85,6 +89,12 @@ def read_lock(source_dir: Path) -> tuple[SourceEntry, ...]:
 def verify_sources(source_dir: Path) -> tuple[SourceEntry, ...]:
     """Refuse changed or missing input bytes before creating any staged artifact."""
     entries = read_lock(source_dir)
+    filenames = [entry.file for entry in entries]
+    if len(filenames) != len(set(filenames)):
+        raise GeneratorError("duplicate pinned source")
+    missing = set(REQUIRED_SOURCES) - set(filenames)
+    if missing:
+        raise GeneratorError(f"missing pinned source {sorted(missing)[0]} in source lock")
     for entry in entries:
         path = source_dir / entry.file
         if not path.is_file():
@@ -193,9 +203,24 @@ def publish(output_dir: Path, staged: dict[str, bytes], force: bool) -> None:
             _ = (staging / filename).write_bytes(content)
         if os.environ.get("SUPERTONIC_UNICODE_TEST_INTERRUPT_BEFORE_PUBLISH") == "1":
             raise GeneratorError("interrupted before publish")
+        backup = staging / "previous"
+        backup.mkdir()
+        for filename in ARTIFACTS:
+            if (output_dir / filename).exists():
+                _ = shutil.copy2(output_dir / filename, backup / filename)
         output_dir.mkdir(parents=True, exist_ok=True)
-        for filename in ("normalization.json", "grapheme.json", "unicode-manifest.json"):
-            os.replace(staging / filename, output_dir / filename)
+        replaced: list[str] = []
+        try:
+            for filename in ARTIFACTS:
+                os.replace(staging / filename, output_dir / filename)
+                replaced.append(filename)
+        except OSError:
+            for filename in replaced:
+                if (backup / filename).exists():
+                    _ = shutil.copy2(backup / filename, output_dir / filename)
+                else:
+                    (output_dir / filename).unlink()
+            raise
     finally:
         shutil.rmtree(staging, ignore_errors=True)
 
