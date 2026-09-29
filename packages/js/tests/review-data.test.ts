@@ -138,6 +138,8 @@ describe("review regressions", () => {
         outdir,
         target: "node",
         format: "esm",
+        // .mjs keeps the output ESM on Node releases without module-syntax detection (<22.7).
+        naming: "[name].mjs",
       })
       expect(bundle.success).toBe(true)
       const script = bundle.outputs[0]?.path ?? ""

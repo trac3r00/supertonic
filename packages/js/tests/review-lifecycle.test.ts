@@ -263,9 +263,13 @@ test("materialization stops collecting when the sample limit is exceeded", async
 })
 
 test("batch materialization applies the same sample limit as single synthesis", async () => {
+  // Each item yields 3 samples and the limit is 5, so only the batch total (6) exceeds it.
+  const single = new Adapter()
+  const within = await engine(single, { maxMaterializedSeconds: 0.5 }).synthesizeBatch([request()])
+  expect(within.items.map((item) => item.pcmFloat32.length)).toEqual([3])
   const adapter = new Adapter()
-  adapter.durations = [0.7, 0.2]
-  const limited = engine(adapter, { maxMaterializedSeconds: 0.1 })
+  adapter.durations = [0.3, 0.3]
+  const limited = engine(adapter, { maxMaterializedSeconds: 0.5 })
   await expect(limited.synthesizeBatch([request(), request("Hey.")])).rejects.toMatchObject({
     code: "RESOURCE_EXHAUSTED",
     message: "materialized audio limit exceeded",
