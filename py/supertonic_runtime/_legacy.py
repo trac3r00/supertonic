@@ -110,13 +110,15 @@ class UnicodeProcessor:
 
     def _text_to_unicode_values(self, text: str) -> np.ndarray:
         unicode_values = np.array(
-            [ord(char) for char in text], dtype=np.uint16
-        )  # 2 bytes
+            [ord(char) for char in text], dtype=np.int32
+        )
         return unicode_values
 
     def __call__(
         self, text_list: list[str], lang_list: list[str]
     ) -> tuple[np.ndarray, np.ndarray]:
+        if len(text_list) != len(lang_list):
+            raise ValueError("text_list and lang_list must have the same length")
         text_list = [
             self._preprocess_text(t, lang) for t, lang in zip(text_list, lang_list)
         ]
@@ -124,6 +126,8 @@ class UnicodeProcessor:
         text_ids = np.zeros((len(text_list), text_ids_lengths.max()), dtype=np.int64)
         for i, text in enumerate(text_list):
             unicode_vals = self._text_to_unicode_values(text)
+            if any(val >= len(self.indexer) or self.indexer[val] == -1 for val in unicode_vals):
+                raise ValueError("Unsupported Unicode character in text")
             text_ids[i, : len(unicode_vals)] = np.array(
                 [self.indexer[val] for val in unicode_vals], dtype=np.int64
             )

@@ -140,6 +140,8 @@ def _read_json_bytes(path: Path, code: str, stage: str) -> tuple[JsonValue, byte
     if path.is_symlink() or not path.is_file():
         raise _error(code, f"JSON asset is unavailable: {path.name}", stage)
     try:
+        if path.stat().st_size > _MAX_ASSET_BYTES:
+            raise _error(code, f"JSON asset has invalid size: {path.name}", stage)
         data = path.read_bytes()
     except OSError as error:
         raise _error(
@@ -345,26 +347,46 @@ class AssetResolver:
                     "cache",
                 )
         file_by_path = {entry.path: entry for entry in manifest.files}
-        if not _GRAPH_PATHS.issubset(file_by_path):
-            raise _error("MODEL_INCOMPATIBLE", "manifest omits a required graph", "manifest")
+        required_kinds = {path: "graph" for path in _GRAPH_PATHS}
+        required_kinds.update({"onnx/tts.json": "metadata", "onnx/unicode_indexer.json": "indexer"})
+        if any(
+            path not in file_by_path or file_by_path[path].kind != kind
+            for path, kind in required_kinds.items()
+        ):
+            raise _error(
+                "MODEL_INCOMPATIBLE", "manifest omits or mislabels a required asset", "manifest"
+            )
         graph_paths: dict[str, Path] = {}
+        verified_paths: dict[str, Path] = {}
         for entry in manifest.files:
-            candidate = root / entry.path
-            if _sha256_file(candidate, entry.bytes, "asset") != entry.sha256:
+            candidate = root
+            for component in PurePosixPath(entry.path).parts:
+                candidate = candidate / component
+                if candidate.is_symlink():
+                    raise _error(
+                        "MODEL_CORRUPT", f"asset path contains a link: {entry.path}", "asset"
+                    )
+            resolved = candidate.resolve(strict=False)
+            if not resolved.is_relative_to(root):
+                raise _error("MODEL_CORRUPT", f"asset escapes model bundle: {entry.path}", "asset")
+            if _sha256_file(resolved, entry.bytes, "asset") != entry.sha256:
                 raise _error("MODEL_CORRUPT", f"asset digest mismatch: {entry.path}", "asset")
+            verified_paths[entry.path] = resolved
             if entry.kind == "graph":
-                graph_paths[entry.path] = candidate
+                graph_paths[entry.path] = resolved
         _style_shape(file_by_path["onnx/duration_predictor.onnx"], "style_dp", (8, 16))
         _style_shape(file_by_path["onnx/text_encoder.onnx"], "style_ttl", (50, 256))
-        config_value, _ = _read_json_bytes(root / "onnx/tts.json", "MODEL_CORRUPT", "config")
+        config_value, _ = _read_json_bytes(
+            verified_paths["onnx/tts.json"], "MODEL_CORRUPT", "config"
+        )
         indexer_value, _ = _read_json_bytes(
-            root / "onnx/unicode_indexer.json", "MODEL_CORRUPT", "indexer"
+            verified_paths["onnx/unicode_indexer.json"], "MODEL_CORRUPT", "indexer"
         )
         config, indexer = _validate_config(
             _dict(config_value, "config", "MODEL_CORRUPT", "config"), indexer_value, manifest
         )
         styles = {
-            Path(entry.path).stem: (root / entry.path, entry.sha256)
+            Path(entry.path).stem: (verified_paths[entry.path], entry.sha256)
             for entry in manifest.files
             if entry.kind == "style"
         }
@@ -486,7 +508,7 @@ def _style_array(
     if expected_count > _MAX_STYLE_VALUES:
         raise _error("STYLE_MISMATCH", f"{label} exceeds style value cap", "style")
     values: list[float] = []
-    _flatten_numbers(raw.get("data"), values, label)
+    _flatten_numbers(raw.get("data"), values, label, expected_count)
     if len(values) != expected_count:
         raise _error("STYLE_MISMATCH", f"{label} data length differs from dimensions", "style")
     array = np.asarray(values, dtype=np.float32).reshape(expected_dims)
@@ -495,11 +517,15 @@ def _style_array(
     return array
 
 
-def _flatten_numbers(value: JsonValue | None, target: list[float], label: str) -> None:
+def _flatten_numbers(
+    value: JsonValue | None, target: list[float], label: str, expected_count: int
+) -> None:
     if isinstance(value, list):
         for item in value:
-            _flatten_numbers(item, target, label)
+            _flatten_numbers(item, target, label, expected_count)
         return
+    if len(target) >= expected_count:
+        raise _error("STYLE_MISMATCH", f"{label} data length differs from dimensions", "style")
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise _error("STYLE_MISMATCH", f"{label} contains a non-numeric value", "style")
     target.append(float(value))

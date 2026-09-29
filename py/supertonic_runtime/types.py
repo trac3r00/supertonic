@@ -12,6 +12,10 @@ from .errors import RequestValidationError
 DEFAULT_STEPS: Final = 8
 DEFAULT_SPEED: Final = 1.05
 DEFAULT_SILENCE_SECONDS: Final = 0.3
+SUPPORTED_LANGUAGES: Final = frozenset(
+    "en ko ja ar bg cs da de el es et fi fr hi hr hu id it lt lv nl pl pt ro ru sk sl sv "
+    "tr uk vi na".split()
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,7 +28,7 @@ class RuntimeConfig:
     def __post_init__(self) -> None:
         """Reject an empty model location before optional inference is loaded."""
         if not str(self.onnx_dir):
-            raise RequestValidationError("onnx_dir must not be empty")
+            raise RequestValidationError(message="onnx_dir must not be empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,12 +44,14 @@ class SynthesisRequest:
     def __post_init__(self) -> None:
         """Validate inexpensive request constraints without loading a provider."""
         if not self.text:
-            raise RequestValidationError("text must not be empty")
-        if not self.language:
-            raise RequestValidationError("language must not be empty")
+            raise RequestValidationError(message="text must not be empty")
+        if self.language not in SUPPORTED_LANGUAGES:
+            raise RequestValidationError(message=f"unsupported language: {self.language}")
         if not 1 <= self.steps <= 100:
-            raise RequestValidationError("steps must be between 1 and 100")
+            raise RequestValidationError(message="steps must be between 1 and 100")
         if not isfinite(self.speed) or not 0.7 <= self.speed <= 2.0:
-            raise RequestValidationError("speed must be finite and between 0.7 and 2.0")
+            raise RequestValidationError(message="speed must be finite and between 0.7 and 2.0")
         if not isfinite(self.silence_seconds) or not 0.0 <= self.silence_seconds <= 5.0:
-            raise RequestValidationError("silence_seconds must be finite and between 0.0 and 5.0")
+            raise RequestValidationError(
+                message="silence_seconds must be finite and between 0.0 and 5.0"
+            )
