@@ -95,7 +95,11 @@ export function normalizeNfkd151(text: string): string {
       current -= 1
     }
   }
-  return String.fromCodePoint(...decomposed)
+  const parts: string[] = []
+  for (let index = 0; index < decomposed.length; index += 8192) {
+    parts.push(String.fromCodePoint(...decomposed.slice(index, index + 8192)))
+  }
+  return parts.join("")
 }
 
 function shouldBreak(codepoints: readonly number[], index: number): boolean {

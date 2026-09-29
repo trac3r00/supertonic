@@ -1,5 +1,6 @@
 import { SupertonicError } from "./errors.js"
 import { runInference } from "./inference.js"
+import { roundSampleCount } from "./pcm.js"
 import { parseSynthesisRequest } from "./request.js"
 import { materializeResult } from "./result.js"
 import { checkAbort, fillNormalNoise, toPublicError } from "./runtime-utils.js"
@@ -19,6 +20,44 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
   const progress = options.onProgress ?? (() => undefined)
   const makeRequestId = options.requestId ?? (() => crypto.randomUUID())
   const noise = options.noise?.fill ?? fillNormalNoise
+
+  const admitRequest = (request: ReturnType<typeof parseSynthesisRequest>, requestId: string) => {
+    if (Array.from(request.text).length > (options.config.maxRawScalars ?? 16_384)) {
+      throw new SupertonicError(
+        "RESOURCE_EXHAUSTED",
+        "raw text exceeds configured scalar limit",
+        "text_admission",
+        requestId,
+        false,
+      )
+    }
+    // Fallback applies only to an unavailable selection; it is not implemented yet, so an
+    // unavailable selection is rejected even when the request opts into fallback.
+    if (request.provider !== "auto" && request.provider !== options.config.provider.actual) {
+      throw new SupertonicError(
+        "PROVIDER_UNAVAILABLE",
+        "requested provider is not available",
+        "provider_selection",
+        requestId,
+        false,
+      )
+    }
+    const prepared = prepareText(request.text, request.language, requestId, request.chunkLimit)
+    if (options.supportedCodepoint !== undefined) {
+      for (const codepoint of prepared.normalizedCodepoints) {
+        if (!options.supportedCodepoint(codepoint)) {
+          throw new SupertonicError(
+            "UNSUPPORTED_CHARACTER",
+            `unsupported scalar U+${codepoint.toString(16).toUpperCase()}`,
+            "indexing",
+            requestId,
+            false,
+          )
+        }
+      }
+    }
+    return prepared
+  }
   let state: "created" | "loading" | "ready" | "closing" | "closed" = "created"
   let loadPromise: Promise<void> | undefined
   let active = false
@@ -42,11 +81,12 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
     loadPromise = adapter
       .load(AbortSignal.any([signal, closeController.signal]), progress)
       .then(() => {
+        ensureOpen("load")
         state = "ready"
       })
       .catch((error: unknown) => {
-        state = "created"
-        throw toPublicError(error, "load")
+        if (state !== "closing" && state !== "closed") state = "created"
+        throw toPublicError(error, "load", "load")
       })
       .finally(() => {
         loadPromise = undefined
@@ -83,20 +123,7 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
   ): AsyncIterable<SynthesisChunk> {
     const requestId = makeRequestId()
     const request = parseSynthesisRequest(input, requestId)
-    const preparedText = prepareText(request.text, request.language, requestId, request.chunkLimit)
-    if (options.supportedCodepoint !== undefined) {
-      for (const codepoint of preparedText.normalizedCodepoints) {
-        if (!options.supportedCodepoint(codepoint)) {
-          throw new SupertonicError(
-            "UNSUPPORTED_CHARACTER",
-            `unsupported scalar U+${codepoint.toString(16).toUpperCase()}`,
-            "indexing",
-            requestId,
-            false,
-          )
-        }
-      }
-    }
+    const preparedText = admitRequest(request, requestId)
     enter(requestId)
     const signal = AbortSignal.any([externalSignal, closeController.signal])
     try {
@@ -142,14 +169,42 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
   const synthesize = async (input: unknown, signal?: AbortSignal): Promise<SynthesisResult> => {
     const chunks: Float32Array[] = []
     let metadata: SynthesisChunk | undefined
+    let request: ReturnType<typeof parseSynthesisRequest> | undefined
+    let silenceSamples = 0
+    let totalSamples = 0
+    const configuredLimit = options.config.maxMaterializedSeconds ?? 3600
+    const maxSamples = Math.min(configuredLimit, 3600) * options.config.sampleRate
     for await (const chunk of synthesizeChunks(input, signal)) {
+      if (request === undefined) {
+        if (!Number.isFinite(configuredLimit) || configuredLimit < 0) {
+          throw new SupertonicError(
+            "INVALID_ARGUMENT",
+            "materialized audio limit must be finite and nonnegative",
+            "audio_validation",
+            chunk.requestId,
+            false,
+          )
+        }
+        request = parseSynthesisRequest(input, chunk.requestId)
+        silenceSamples = roundSampleCount(options.config.sampleRate * request.silenceSeconds)
+      }
+      totalSamples += (chunks.length === 0 ? 0 : silenceSamples) + chunk.pcmFloat32.length
+      if (totalSamples > maxSamples) {
+        throw new SupertonicError(
+          "RESOURCE_EXHAUSTED",
+          "materialized audio limit exceeded",
+          "audio_admission",
+          chunk.requestId,
+          false,
+        )
+      }
       chunks.push(chunk.pcmFloat32)
       metadata = chunk
     }
     return materializeResult(
       chunks,
       metadata,
-      parseSynthesisRequest(input, metadata?.requestId ?? "request"),
+      request ?? parseSynthesisRequest(input, metadata?.requestId ?? "request"),
       options.config,
     )
   }
@@ -178,9 +233,35 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
     }
     const requestId = makeRequestId()
     const requests = input.map((item) => parseSynthesisRequest(item, requestId))
-    const prepared = requests.map((request) =>
-      prepareText(request.text, request.language, requestId, request.chunkLimit),
-    )
+    const prepared = requests.map((request) => admitRequest(request, requestId))
+    const firstRequest = requests[0]
+    if (
+      firstRequest !== undefined &&
+      requests.some(
+        (request) =>
+          request.speed !== firstRequest.speed ||
+          request.steps !== firstRequest.steps ||
+          request.silenceSeconds !== firstRequest.silenceSeconds ||
+          request.seed !== firstRequest.seed ||
+          !(["styleTtl", "styleDp"] as const).every((field) => {
+            const a = firstRequest.voiceStyle[field]
+            const b = request.voiceStyle[field]
+            return (
+              a.dims.every((dim, i) => dim === b.dims[i]) &&
+              a.data.length === b.data.length &&
+              a.data.every((value, i) => value === b.data[i])
+            )
+          }),
+      )
+    ) {
+      throw new SupertonicError(
+        "INVALID_ARGUMENT",
+        "batch requires identical inference settings",
+        "batch_admission",
+        requestId,
+        false,
+      )
+    }
     if (prepared.some((text) => text.chunks.length !== 1)) {
       throw new SupertonicError(
         "RESOURCE_EXHAUSTED",
@@ -234,7 +315,13 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
     if (closePromise !== undefined) return closePromise
     state = "closing"
     closeController.abort()
-    closePromise = activeDone
+    closePromise = Promise.all([
+      activeDone,
+      loadPromise?.then(
+        () => undefined,
+        () => undefined,
+      ),
+    ])
       .then(() => adapter.close())
       .then(() => {
         state = "closed"
@@ -247,7 +334,10 @@ export function createPipelineEngine<TPrepared, TEmbedding>(
     synthesize,
     synthesizeBatch,
     synthesizeChunks,
-    capabilities: () => adapter.capabilities(),
+    capabilities: () => {
+      ensureOpen("capabilities")
+      return adapter.capabilities()
+    },
     close,
   }
 }

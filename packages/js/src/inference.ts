@@ -13,7 +13,7 @@ type InferenceOptions<TPrepared, TEmbedding> = {
   readonly adapter: InferenceAdapter<TPrepared, TEmbedding>
   readonly config: PipelineConfig
   readonly progress: (event: ProgressEvent) => void
-  readonly noise: (target: Float32Array) => void
+  readonly noise: (target: Float32Array, seed?: number) => void
 }
 
 export async function runInference<TPrepared, TEmbedding>(
@@ -94,7 +94,23 @@ export async function runInference<TPrepared, TEmbedding>(
   let latent: Float32Array<ArrayBufferLike> = new Float32Array(
     requests.length * latentChannels * latentLength,
   )
-  options.noise(latent)
+  options.noise(latent, first.seed)
+  const latentMask = new Float32Array(requests.length * latentLength)
+  for (let batch = 0; batch < requests.length; batch += 1) {
+    const validLength = Math.ceil((predictedSamples[batch] ?? 0) / chunkSize)
+    for (let time = 0; time < validLength; time += 1) latentMask[batch * latentLength + time] = 1
+  }
+  const applyMask = (values: Float32Array): void => {
+    for (let batch = 0; batch < requests.length; batch += 1) {
+      for (let channel = 0; channel < latentChannels; channel += 1) {
+        for (let time = 0; time < latentLength; time += 1) {
+          const index = (batch * latentChannels + channel) * latentLength + time
+          values[index] = (values[index] ?? 0) * (latentMask[batch * latentLength + time] ?? 0)
+        }
+      }
+    }
+  }
+  applyMask(latent)
   const embedding = await options.adapter.encodeText(prepared, first.voiceStyle, signal)
   const totalSteps = first.steps ?? 8
   for (let step = 0; step < totalSteps; step += 1) {
@@ -103,6 +119,7 @@ export async function runInference<TPrepared, TEmbedding>(
     const next = await options.adapter.estimateVector(
       latent,
       latentShape,
+      latentMask,
       { prepared, embedding },
       first.voiceStyle,
       step,
@@ -118,6 +135,7 @@ export async function runInference<TPrepared, TEmbedding>(
         false,
       )
     }
+    applyMask(next)
     latent = next
   }
   checkAbort(signal, requestId)

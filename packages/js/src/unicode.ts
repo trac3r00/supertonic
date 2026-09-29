@@ -30,7 +30,7 @@ function units(text: string): readonly string[] {
 }
 
 function unitCost(unit: string): number {
-  return /^<(?:laugh|breath|sigh)>$/.test(unit) ? 1 : Array.from(unit).length
+  return Array.from(unit).length
 }
 
 function hardSplit(text: string, limit: number, requestId: string): readonly string[] {

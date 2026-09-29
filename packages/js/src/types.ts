@@ -168,6 +168,7 @@ export interface InferenceAdapter<TPrepared, TEmbedding> {
   estimateVector(
     noisyLatent: Float32Array,
     latentShape: readonly [number, number, number],
+    latentMask: Float32Array,
     batch: InferenceBatch<TPrepared, TEmbedding>,
     style: VoiceStyle,
     step: number,
@@ -184,7 +185,7 @@ export interface InferenceAdapter<TPrepared, TEmbedding> {
 }
 
 export interface NoiseSource {
-  fill(target: Float32Array): void
+  fill(target: Float32Array, seed?: number): void
 }
 
 export interface PipelineEngine {

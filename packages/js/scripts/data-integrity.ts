@@ -8,6 +8,15 @@ const hashSchema = z.object({
   hashes: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/)),
 })
 
+// Keep this set in sync with the files copied by scripts/build.ts.
+const packagedPaths = [
+  "contract.json",
+  "normalization.json",
+  "grapheme.json",
+  "unicode-manifest.json",
+  "models/supertonic-3.json",
+] as const
+
 const unicodeManifestSchema = z.object({
   unicode_version: z.literal("15.1.0"),
   uax29_revision: z.literal(43),
@@ -31,6 +40,13 @@ export async function verifyDataDirectory(directory: string): Promise<void> {
   const sourceHashes = hashSchema.parse(
     JSON.parse(await readFile(resolve(directory, "source-hashes.json"), "utf8")),
   )
+  const actualPaths = Object.keys(sourceHashes.hashes)
+  if (
+    actualPaths.length !== packagedPaths.length ||
+    actualPaths.some((path) => !packagedPaths.includes(path as (typeof packagedPaths)[number]))
+  ) {
+    throw new DataVerificationError("source hashes must contain exactly the packaged data paths")
+  }
   for (const [relativePath, expected] of Object.entries(sourceHashes.hashes)) {
     const actual = await sha256(resolve(directory, relativePath))
     if (actual !== expected) {

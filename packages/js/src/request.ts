@@ -89,10 +89,13 @@ function parseStyle(value: z.infer<typeof styleSchema>, requestId: string): Voic
 export function parseSynthesisRequest(input: unknown, requestId = "request"): SynthesisRequest {
   const result = requestSchema.safeParse(input)
   if (!result.success) {
+    const invalidStyle = result.error.issues.some(
+      (issue) => issue.path[0] === "voice_style" && issue.path.length > 1,
+    )
     throw new SupertonicError(
-      "INVALID_ARGUMENT",
+      invalidStyle ? "STYLE_MISMATCH" : "INVALID_ARGUMENT",
       result.error.issues[0]?.message ?? "invalid synthesis request",
-      "request_validation",
+      invalidStyle ? "style_validation" : "request_validation",
       requestId,
       false,
       { cause: result.error },

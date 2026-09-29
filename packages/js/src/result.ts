@@ -17,17 +17,32 @@ export function materializeResult(
       false,
     )
   }
-  const silenceSamples = roundSampleCount(config.sampleRate * request.silenceSeconds)
-  const pcmFloat32 = concatenatePcm(chunks, silenceSamples)
-  if (pcmFloat32.length / config.sampleRate > (config.maxMaterializedSeconds ?? 3600)) {
+  const configuredLimit = config.maxMaterializedSeconds ?? 3600
+  if (!Number.isFinite(configuredLimit) || configuredLimit < 0) {
     throw new SupertonicError(
-      "RESOURCE_EXHAUSTED",
-      "materialized audio limit exceeded",
-      "audio_admission",
+      "INVALID_ARGUMENT",
+      "materialized audio limit must be finite and nonnegative",
+      "audio_validation",
       metadata.requestId,
       false,
     )
   }
+  const maxSamples = Math.min(configuredLimit, 3600) * config.sampleRate
+  const silenceSamples = roundSampleCount(config.sampleRate * request.silenceSeconds)
+  let totalSamples = 0
+  for (let index = 0; index < chunks.length; index += 1) {
+    totalSamples += (index === 0 ? 0 : silenceSamples) + (chunks[index]?.length ?? 0)
+    if (totalSamples > maxSamples) {
+      throw new SupertonicError(
+        "RESOURCE_EXHAUSTED",
+        "materialized audio limit exceeded",
+        "audio_admission",
+        metadata.requestId,
+        false,
+      )
+    }
+  }
+  const pcmFloat32 = concatenatePcm(chunks, silenceSamples)
   return {
     requestId: metadata.requestId,
     sampleRate: config.sampleRate,
