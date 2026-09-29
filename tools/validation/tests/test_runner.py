@@ -290,6 +290,49 @@ def test_baseline_prepare_uses_the_real_public_cli(tmp_path: Path) -> None:
     assert receipt.inference_proof is True
 
 
+def test_mismatched_assets_does_not_verify_when_original_cache_is_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A setup failure cannot stand in for rejection of the substituted manifest."""
+    from supertonic_verify import baseline
+
+    failure = baseline.BaselineError("original cache invalid")
+
+    def invalid_original(_cache: Path, _manifest: Path | None = None) -> None:
+        raise failure
+
+    monkeypatch.setattr(baseline, "validate_cache", invalid_original)
+    result = baseline.reject_mismatched_assets(tmp_path, baseline.ORIGINAL_REF, tmp_path)
+    assert result.outcome == "assertion_failure"
+    assert result.errors == ("original cache invalid",)
+    assert not (tmp_path / "substituted-manifest.json").exists()
+
+
+def test_mismatched_assets_verifies_only_substituted_rejection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The staged manifest must reach the second validator before verification."""
+    from supertonic_verify import baseline
+
+    calls: list[Path | None] = []
+    failure = baseline.BaselineError("mutated manifest rejected")
+
+    def validate(_cache: Path, manifest: Path | None = None) -> None:
+        calls.append(manifest)
+        if manifest is not None:
+            assert manifest.read_text() == "substituted"
+            raise failure
+
+    def stage(_source: Path, target: Path) -> None:
+        _ = target.write_text("substituted")
+
+    monkeypatch.setattr(baseline, "validate_cache", validate)
+    monkeypatch.setattr(baseline, "_stage_substituted_manifest", stage)
+    result = baseline.reject_mismatched_assets(tmp_path, baseline.ORIGINAL_REF, tmp_path)
+    assert result.outcome == "verified"
+    assert calls == [None, tmp_path / "substituted-manifest.json"]
+
+
 def test_baseline_rejects_an_incorrect_original_ref(tmp_path: Path) -> None:
     """A different commit cannot be mislabeled as the immutable original baseline."""
     evidence_dir = tmp_path / "wrong-ref"

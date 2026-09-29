@@ -202,6 +202,15 @@ def reject_mismatched_assets(root: Path, ref: str, scratch_dir: Path) -> Baselin
     try:
         _ = validate_cache(root / MODEL_CACHE_PATH)
         _stage_substituted_manifest(source, mutated)
+    except (BaselineError, OSError, json.JSONDecodeError) as error:
+        return BaselineResult(
+            children=(),
+            errors=(str(error),),
+            evidence_class="rejection",
+            outcome="assertion_failure",
+            inference_proof=False,
+        )
+    try:
         _ = validate_cache(root / MODEL_CACHE_PATH, mutated)
     except BaselineError:
         return BaselineResult(
@@ -209,14 +218,6 @@ def reject_mismatched_assets(root: Path, ref: str, scratch_dir: Path) -> Baselin
             errors=(),
             evidence_class="rejection",
             outcome="verified",
-            inference_proof=False,
-        )
-    except (OSError, json.JSONDecodeError) as error:
-        return BaselineResult(
-            children=(),
-            errors=(str(error),),
-            evidence_class="rejection",
-            outcome="assertion_failure",
             inference_proof=False,
         )
     return BaselineResult(

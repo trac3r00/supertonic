@@ -1,5 +1,6 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
+  link,
   lstat,
   mkdir,
   open,
@@ -35,7 +36,7 @@ async function exists(path) {
   }
 }
 
-async function ensureDirectory(path) {
+export async function ensureDirectory(path, create = mkdir) {
   const absolute = resolve(path);
   const root = parse(absolute).root;
   const remainder = relative(root, absolute).split('/').filter(Boolean);
@@ -44,10 +45,14 @@ async function ensureDirectory(path) {
     current = join(current, component);
     const entry = await exists(current);
     if (!entry) {
-      await mkdir(current);
-      continue;
+      try {
+        await create(current);
+      } catch (error) {
+        if (!error || typeof error !== 'object' || error.code !== 'EEXIST') throw error;
+      }
     }
-    if (entry.isSymbolicLink() || !entry.isDirectory()) fail(`cache path is not a safe directory: ${current}`);
+    const created = await exists(current);
+    if (!created || created.isSymbolicLink() || !created.isDirectory()) fail(`cache path is not a safe directory: ${current}`);
   }
   return absolute;
 }
@@ -173,7 +178,7 @@ async function staleLock(lock) {
   return false;
 }
 
-async function acquireLock(cache, manifest, target, signal) {
+export async function acquireLock(cache, manifest, target, signal, publish = link) {
   const lockDirectory = await ensureDirectory(join(cache, '.locks'));
   const lock = join(lockDirectory, `${manifest.model.id}-${manifest.model.revision}.lock`);
   const deadline = Date.now() + LOCK_WAIT_MS;
@@ -182,9 +187,13 @@ async function acquireLock(cache, manifest, target, signal) {
     const existingTarget = await exists(target);
     if (existingTarget) return null;
     try {
-      const handle = await open(lock, 'wx');
-      await handle.writeFile(JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }));
-      await handle.close();
+      const temporary = join(lockDirectory, `.${manifest.model.id}-${manifest.model.revision}-${randomUUID()}.tmp`);
+      try {
+        await writeFile(temporary, JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }), { flag: 'wx' });
+        await publish(temporary, lock);
+      } finally {
+        await releaseLock(temporary);
+      }
       return lock;
     } catch (error) {
       if (!error || typeof error !== 'object' || error.code !== 'EEXIST') throw error;

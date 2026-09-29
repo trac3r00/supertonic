@@ -7,14 +7,19 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { link, mkdir, readFile, readdir, unlink } from 'node:fs/promises';
+import { acquireLock, ensureDirectory } from './cache.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const evidenceDir = resolve(process.env.ASSETS_EVIDENCE_DIR ?? join(root, '.omo/evidence/task-2'));
 const scenario = readArgument('--scenario') ?? 'all';
+const scenarios = new Set(['all', 'happy-and-offline', 'corrupt-partial-and-offline', 'malicious-and-concurrent', 'model-contract']);
+if (!scenarios.has(scenario)) throw new Error(`unknown asset test scenario: ${scenario}`);
 const workDir = join(evidenceDir, 'test-work');
 const resourcesPath = join(evidenceDir, 'test-resources.json');
 const cleanupPath = join(evidenceDir, 'test-cleanup.json');
@@ -212,6 +217,50 @@ async function maliciousAndConcurrent() {
   });
 }
 
+async function directoryAndLockRaces() {
+  const directory = join(workDir, 'raced-directory');
+  assert.equal(await ensureDirectory(directory, async (path) => {
+    await mkdir(path);
+    await mkdir(path);
+  }), directory, 'concurrent directory creation should be accepted');
+
+  const symlink = join(workDir, 'raced-symlink');
+  await assert.rejects(
+    ensureDirectory(symlink, async (path) => {
+      symlinkSync(directory, path);
+      await mkdir(path);
+    }),
+    /cache path is not a safe directory/,
+  );
+
+  const cache = join(workDir, 'atomic-lock-cache');
+  const manifest = fixtureManifest('http://127.0.0.1:1/repo', [artifact('onnx/a.onnx', 'graph')]);
+  const target = join(cache, manifest.model.id, manifest.model.revision);
+  const lock = await acquireLock(cache, manifest, target, undefined, async (temporary, destination) => {
+    assert.equal(existsSync(destination), false, 'lock appeared before metadata was complete');
+    const metadata = JSON.parse(await readFile(temporary, 'utf8'));
+    assert.equal(metadata.pid, process.pid);
+    await link(temporary, destination);
+  });
+  assert.ok(lock);
+  assert.equal(JSON.parse(await readFile(lock, 'utf8')).pid, process.pid);
+  assert.deepEqual(await readdir(join(cache, '.locks')), [lock.split('/').pop()]);
+  await unlink(lock);
+
+  let competitorLock;
+  const raced = await acquireLock(cache, manifest, target, undefined, async (temporary, destination) => {
+    assert.equal(existsSync(destination), false);
+    assert.equal(JSON.parse(await readFile(temporary, 'utf8')).pid, process.pid);
+    competitorLock = await acquireLock(cache, manifest, target);
+    await mkdir(target, { recursive: true });
+    await link(temporary, destination);
+  });
+  assert.equal(raced, null, 'the losing fetch should observe the published target');
+  assert.ok(competitorLock);
+  assert.equal(JSON.parse(await readFile(competitorLock, 'utf8')).pid, process.pid, 'live competing lock was removed');
+  await unlink(competitorLock);
+}
+
 function modelContract() {
   const path = join(root, 'contracts/v1/models/supertonic-3.json');
   const manifest = JSON.parse(readFileSync(path, 'utf8'));
@@ -237,6 +286,12 @@ function modelContract() {
 }
 
 async function main() {
+  if (scenario === 'all') {
+    const invalid = spawnSync(process.execPath, [join(root, 'tools/assets/test.mjs'), '--scenario', 'misspelled'], { cwd: root, encoding: 'utf8' });
+    assert.notEqual(invalid.status, 0, 'unknown scenario unexpectedly passed');
+    assert.match(invalid.stderr, /unknown asset test scenario: misspelled/);
+    assert.doesNotMatch(invalid.stdout, /"status":"passed"/);
+  }
   mkdirSync(evidenceDir, { recursive: true });
   rmSync(workDir, { recursive: true, force: true });
   mkdirSync(workDir, { recursive: true });
@@ -246,6 +301,7 @@ async function main() {
     if (scenario === 'all' || scenario === 'corrupt-partial-and-offline') await corruptPartialAndOffline();
     if (scenario === 'all' || scenario === 'malicious-and-concurrent') await maliciousAndConcurrent();
     if (scenario === 'all' || scenario === 'model-contract') modelContract();
+    if (scenario === 'all') await directoryAndLockRaces();
     console.log(JSON.stringify({ scenario, status: 'passed' }));
   } finally {
     rmSync(workDir, { recursive: true, force: true });
